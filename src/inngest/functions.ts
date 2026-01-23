@@ -33,7 +33,7 @@ export const demoGenerateText = inngest.createFunction(
 
 
 
-        await step.run("generate-text", async () => {
+        return await step.run("generate-text", async () => {
             return await generateText({
                 model: anthropic("claude-3-5-sonnet"),
                 prompt: finalPrompt,

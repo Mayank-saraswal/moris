@@ -12,13 +12,13 @@ export default function DemoPage() {
     const handleBlocking = async ()=>{
        
         setLoading(true);
-        await fetch("api/demo/blocking", {method:"POST"})
+        await fetch("/api/demo/blocking", {method:"POST"})
         setLoading(false);
     }
     const handleBackground = async ()=>{
        
         setLoading2(true);
-        await fetch("api/demo/background", {method:"POST"})
+        await fetch("/api/demo/background", {method:"POST"})
         setLoading2(false);
     }
     return (    
