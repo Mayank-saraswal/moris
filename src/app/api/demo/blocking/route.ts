@@ -1,12 +1,13 @@
 import { generateText } from "ai";
 import { anthropic } from "@ai-sdk/anthropic";
+import { google } from "@ai-sdk/google";
 
 
 
 
 export async function POST() {
     const responce =  await generateText({
-  model: anthropic("claude-sonnet-4-5-20250929"),
+  model: anthropic("claude-3-5-sonnet"),
   prompt: 'Write a vegetarian lasagna recipe for 4 people.',
 });
 
