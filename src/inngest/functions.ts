@@ -12,7 +12,7 @@ export const demoGenerateText = inngest.createFunction(
     async ({ event, step }) => {
         const { prompt } = event.data as { prompt: string };
 
-        const urls = await step.run("exctract-urls", async () => {
+        const urls = await step.run("extract-urls", async () => {
             return prompt.match(URL_REGEX) ?? [];
         }) as string[];
 
@@ -33,7 +33,7 @@ export const demoGenerateText = inngest.createFunction(
 
 
 
-        await step.run("generate-text", async () => {
+        return await step.run("generate-text", async () => {
             return await generateText({
                 model: anthropic("claude-3-5-sonnet"),
                 prompt: finalPrompt,
