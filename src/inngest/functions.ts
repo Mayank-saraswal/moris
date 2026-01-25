@@ -37,6 +37,11 @@ export const demoGenerateText = inngest.createFunction(
             return await generateText({
                 model: anthropic("claude-3-5-sonnet"),
                 prompt: finalPrompt,
+                experimental_telemetry:{
+                    isEnabled:true,
+                    recordInputs:true,
+                    recordOutputs:true
+                }
             });
         }); 
     },
