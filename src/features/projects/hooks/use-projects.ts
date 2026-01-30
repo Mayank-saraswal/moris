@@ -1,7 +1,6 @@
 import { useMutation, useQuery } from "convex/react";
 import { api } from "../../../../convex/_generated/api";
 import { Id } from "../../../../convex/_generated/dataModel";
-import { useAuth } from "@clerk/nextjs";
 
 export const useProjects = () => {
     return useQuery(api.projects.get)
@@ -15,7 +14,6 @@ export const useProjectPartial = (limit:number) => {
 }
 
 export const useCreateProject = () => {
-    const {userId} = useAuth();
     return useMutation(api.projects.create).withOptimisticUpdate(
         (localStore , args) => {
 
@@ -25,10 +23,14 @@ export const useCreateProject = () => {
                 _id: crypto.randomUUID() as Id<"projects">,
                 _creationTime: now,
                 name: args.name,
-                ownerId: userId,
+                ownerId: "anonymous",
                 updatedAt: now,
                 
-            }
+            };
+            localStore.setQuery(api.projects.get, {},[
+                newProject,
+                ...existingProjects,
+            ]);
         }
     )
 };

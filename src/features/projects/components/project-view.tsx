@@ -8,20 +8,41 @@ import { Kbd } from "@/components/ui/kbd";
 import { FaGithub } from "react-icons/fa";
 import { ProjectsList } from "./projects-list";
 import { useCreateProject } from "../hooks/use-projects";
+import { useEffect, useState } from 'react';
+import { ProjectsCommandDialog } from './projects-command-dialog';
 const font = Poppins({
     subsets: ["latin"],
     weight: ["400", "500", "600", "700"],
 });
 
 export const ProjectView = () => {
-
+    const [commandDialogOpen, setCommandDialogOpen] = useState(false);
     const createProject= useCreateProject();
+
+    useEffect(()=>{
+        const handleKeyDown = (e: KeyboardEvent) => {
+            if(e.metaKey || e.ctrlKey){
+                if(e.key === "k"){
+                    e.preventDefault();
+                    setCommandDialogOpen(true);
+                }
+            }
+        };
+        document.addEventListener("keydown", handleKeyDown);
+        return () => {
+            document.removeEventListener("keydown", handleKeyDown);
+        };
+    },[])
+    
+    
     return (
+        <>
+        <ProjectsCommandDialog open={commandDialogOpen} onOpenChange={setCommandDialogOpen}/>
         <div className="min-h-screen bg-sidebar  flex flex-col items-center justify-center p-6 md:p-16">
             <div className="w-full max-w-sm mx-auto flex flex-col gap-4 items-center">
                 <div className="flex justify-between gap-4 w-full items-center">
                     <div className="flex items-center gap-2 w-full group/logo">
-                        <img src="/logo.png" alt="Moris" className="size-[32px] md:size-[46px]" />
+                        <img src="/logo.svg" alt="Moris" className="size-[32px] md:size-[46px]" />
                         <h1 className={cn("text-4xl md:text-5xl font-semibold ", font.className)}>
                             Moris
                         </h1>
@@ -80,9 +101,10 @@ export const ProjectView = () => {
                             </div>
                         </Button>
                          </div>
-                        <ProjectsList onViewAll={()=>{}}/>
+                        <ProjectsList onViewAll={()=>setCommandDialogOpen(true)}/>
                 </div>
             </div>
         </div>
+        </>
     );
 }

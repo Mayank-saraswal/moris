@@ -118,7 +118,9 @@ export const ProjectsList = ({onViewAll}:ProjectsListProps) => {
                         <span className="text-sm text-muted-foreground">
                             Recent Projects
                         </span>
-                        <button className="flex items-center gap-2 text-muted-foreground text-xs hover:text-foreground transition-colors" >
+                        <button 
+                        onClick={onViewAll}
+                        className="flex items-center gap-2 text-muted-foreground text-xs hover:text-foreground transition-colors" >
                             <span>
                                 View All
                             </span>
