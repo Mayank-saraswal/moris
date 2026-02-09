@@ -8,18 +8,18 @@ export const create = mutation({
     },
     handler: async (ctx, args) => {
         const identity = await verifyAuth(ctx);
-      const projectId = await ctx.db.insert("projects", {
-        name: args.name,
-        ownerId: identity.subject,
-        updatedAt: Date.now(),
-        
-      });
-      return projectId;
+        const projectId = await ctx.db.insert("projects", {
+            name: args.name,
+            ownerId: identity.subject,
+            updatedAt: Date.now(),
+
+        });
+        return projectId;
     },
 })
 
 export const getPartial = query({
-    args:{
+    args: {
         limit: v.number(),
     },
     handler: async (ctx, args) => {
@@ -34,6 +34,7 @@ export const getPartial = query({
 })
 
 export const get = query({
+    args: {},
     handler: async (ctx) => {
         const identity = await verifyAuth(ctx);
 
@@ -44,3 +45,50 @@ export const get = query({
     },
 })
 
+
+export const getById = query({
+    args: {
+        id: v.id("projects"),
+    },
+    handler: async (ctx, args) => {
+        const identity = await verifyAuth(ctx);
+        const project = await ctx.db.get("projects", args.id);
+
+        if (!project) {
+            throw new Error("Project not found");
+        }
+
+        if (project.ownerId !== identity.subject) {
+            throw new Error("Unauthorized access to this project");
+        }
+        return project;
+    },
+})
+
+
+
+export const rename = mutation({
+    args: {
+        name: v.string(),
+        id: v.id("projects"),
+    },
+    handler: async (ctx, args) => {
+        const identity = await verifyAuth(ctx);
+        const project = await ctx.db.get("projects", args.id);
+
+        if (!project) {
+            throw new Error("Project not found");
+        }
+
+        if (project.ownerId !== identity.subject) {
+            throw new Error("Unauthorized access to this project");
+        }
+
+        await ctx.db.patch(args.id, {
+            name: args.name,
+            updatedAt: Date.now(),
+        });
+
+        return project;
+    },
+})
