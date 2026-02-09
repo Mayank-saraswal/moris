@@ -11,4 +11,18 @@ export default defineSchema({
         exportRepoUrl: v.optional(v.string()),
         
     }).index("by_owner", ["ownerId"]),
+
+
+    files: defineTable({
+        name: v.string(),
+        content: v.optional(v.string()),// text files
+        storageId: v.optional(v.id("_storage")), //binary files
+        projectId: v.id("projects"),
+        parentId: v.optional(v.id("files")),
+        type: v.union(v.literal("file"), v.literal("folder")),
+        updatedAt: v.number(),
+        
+    }).index("by_project", ["projectId"])
+    .index("by_parent", ["parentId"])
+    .index("by_project_parent", ["projectId", "parentId"]),
 })
