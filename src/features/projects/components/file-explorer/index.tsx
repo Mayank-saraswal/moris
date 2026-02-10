@@ -7,12 +7,16 @@ import { useProject } from "../../hooks/use-projects";
 import { Button } from "@/components/ui/button";
 import { useCreateFile, useCreateFolder } from "../../hooks/use-files";
 import { CreateInput } from "./create-input";
+import { useFolderContents } from "../../hooks/use-files";
+import { LoadingRow } from "./loading-row";
 
 export const FileExplorer = ({projectId}: {projectId: Id<"projects">}) => {
     const [isOpen , setIsOpen] = useState(false);
+    const rootFiles = useFolderContents({projectId , enabled:isOpen});
     const [collapseKey , setCollapseKey] = useState(0);
     const [creating , setCreating] = useState<"file" | "folder" | null>(null);
     const project = useProject(projectId);
+
 
     const createFile = useCreateFile();
     const createFolder = useCreateFolder();
@@ -118,6 +122,7 @@ export const FileExplorer = ({projectId}: {projectId: Id<"projects">}) => {
                 </div>
                 {isOpen && (
                     <>
+                    {rootFiles === undefined && <LoadingRow level={0}/>}
                     {creating && (
                         <CreateInput
                         type={creating}
@@ -126,6 +131,14 @@ export const FileExplorer = ({projectId}: {projectId: Id<"projects">}) => {
                         onSubmit={handleCreate}
                         />
                     )}
+                    {rootFiles?.map((item)=>(
+                        <Tree
+                        key={`${item._id}-${collapseKey}`}
+                        file={item}
+                        level={0}
+                        projectId={projectId}
+                        />
+                    ))}
                     </>
                 )}
             </ScrollArea>
