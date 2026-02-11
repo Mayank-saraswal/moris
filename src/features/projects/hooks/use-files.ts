@@ -15,6 +15,16 @@ export const useCreateFolder = ()=>{
     
 };
 
+export const useRenameFile = ()=>{
+    return useMutation(api.files.renameFile);
+    
+};
+
+export const useDeleteFile = ()=>{
+    return useMutation(api.files.deleteFile);
+    
+};
+
 
 export const useFolderContents = ({
     projectId,
