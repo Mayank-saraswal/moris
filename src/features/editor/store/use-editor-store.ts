@@ -71,7 +71,7 @@ export const useEditorStore = create<EditorStore>()((set, get) => ({
         }
 
         //case3 file is already open - just set as active
-        const shouldPin = pinned && previewTabId !== fileId;
+        const shouldPin = pinned && previewTabId === fileId;
         tabs.set(projectId, {
             ...state,
             activeTabId: fileId,
@@ -105,9 +105,9 @@ export const useEditorStore = create<EditorStore>()((set, get) => ({
             activeTabId: newActiveTabId,
             previewTabId: previewTabId === fileId ? null : previewTabId,
         })
-        set({tabs})
+        set({ tabs })
 
-      
+
     },
 
     closeAllTabs: (projectId) => {
