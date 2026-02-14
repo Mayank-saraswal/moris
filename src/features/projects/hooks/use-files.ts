@@ -17,6 +17,11 @@ export const useCreateFile = ()=>{
     
 };
 
+export const useUpdateFile = ()=>{
+    return useMutation(api.files.updateFile);
+    
+};
+
 
 export const useCreateFolder = ()=>{
     return useMutation(api.files.createFolder);
