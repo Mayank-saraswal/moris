@@ -24,31 +24,31 @@ const font = Poppins({
 
 export const Navbar = ({ projectId }: { projectId: Id<"projects"> }) => {
     const project = useProject(projectId);
-    const renameProject = useRenameProject(projectId);
+    const renameProject = useRenameProject();
     const [isRenaming, setIsRenaming] = useState(false);
     const [name, setName] = useState("");
 
 
     const handleStartRename = () => {
-        if(!project) return;
+        if (!project) return;
         setName(project.name);
         setIsRenaming(true);
     };
 
     const handleSubmit = () => {
-        if(!project) return;
+        if (!project) return;
         setIsRenaming(false);
         const trimmedName = name.trim();
-        if(!trimmedName || trimmedName === project?.name) return;
-        renameProject({id: projectId, name: trimmedName});
+        if (!trimmedName || trimmedName === project?.name) return;
+        renameProject({ id: projectId, name: trimmedName });
     };
 
 
     const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
-        if(e.key === "Enter") {
+        if (e.key === "Enter") {
             handleSubmit();
         }
-        if(e.key === "Escape") {
+        if (e.key === "Escape") {
             setIsRenaming(false);
         }
     };
@@ -79,28 +79,28 @@ export const Navbar = ({ projectId }: { projectId: Id<"projects"> }) => {
                         </BreadcrumbItem>
                         <BreadcrumbSeparator className="ml-0 mr-1" />
                         <BreadcrumbItem>
-                          {isRenaming ? (
-                            <input   
-                            autoFocus
-                            type="text"
-                            
-                            value={name}
-                            onChange={(e)=>setName(e.target.value)}
-                            onFocus={(e)=>e.currentTarget.select()}
-                            onBlur={handleSubmit}
-                            onKeyDown={handleKeyDown}
-                            className="text-sm bg-transparent text-foreground
+                            {isRenaming ? (
+                                <input
+                                    autoFocus
+                                    type="text"
+
+                                    value={name}
+                                    onChange={(e) => setName(e.target.value)}
+                                    onFocus={(e) => e.currentTarget.select()}
+                                    onBlur={handleSubmit}
+                                    onKeyDown={handleKeyDown}
+                                    className="text-sm bg-transparent text-foreground
                             outline-none focus:ring-1 focus:ring-inset 
                             focus:ring-ring font-medium max-w-40 truncate
                             "
-                            />
-                          ) : (
-                            <BreadcrumbPage className="text-sm font-medium cursor-pointer hover:text-primary max-w-40 truncate"
-                            onClick={handleStartRename}
-                            >
-                                {project?.name ?? "Loading..."}
-                            </BreadcrumbPage>
-                          )}
+                                />
+                            ) : (
+                                <BreadcrumbPage className="text-sm font-medium cursor-pointer hover:text-primary max-w-40 truncate"
+                                    onClick={handleStartRename}
+                                >
+                                    {project?.name ?? "Loading..."}
+                                </BreadcrumbPage>
+                            )}
                         </BreadcrumbItem>
                     </BreadcrumbList>
                 </Breadcrumb>
@@ -121,7 +121,7 @@ export const Navbar = ({ projectId }: { projectId: Id<"projects"> }) => {
                             </TooltipTrigger>
                             <TooltipContent>
                                 Saved {""}
-                                {project?.updatedAt ? formatDistanceToNow(project.updatedAt, {addSuffix: true}) : "Loading..."}
+                                {project?.updatedAt ? formatDistanceToNow(project.updatedAt, { addSuffix: true }) : "Loading..."}
                             </TooltipContent>
                         </Tooltip>
                     )
