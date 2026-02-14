@@ -84,7 +84,7 @@ export const TopNavigation = ({ projectId }: { projectId: Id<"projects"> }) => {
                         <Tab
                             key={fileId}
                             fileId={fileId}
-                            index={index}
+                            isFirst={index === 0}
                             projectId={projectId}
                         />
                     )

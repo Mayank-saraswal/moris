@@ -3,7 +3,7 @@ import { Spinner } from "@/components/ui/spinner"
 import { getItemPadding } from "./constants"
 
 
-export const LoadingRow = ({level , className}: {level?: number , className?:string}) => {
+export const LoadingRow = ({level = 0 , className}: {level?: number , className?:string}) => {
     return (
         <div className={cn("h-5.5 flex items-center text-muted-foreground",className)}
         style={{

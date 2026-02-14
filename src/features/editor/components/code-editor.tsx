@@ -9,6 +9,7 @@ import {  indentWithTab } from "@codemirror/commands";
 import { minimap } from "../extensions/minimap";
 import {indentationMarkers} from "@replit/codemirror-indentation-markers"
 import {customSetup} from "../extensions/custom-setup"
+import { suggestions } from "../extensions/suggestion";
 interface Props{
     fileName:string;
     initialValue?:string;
@@ -36,6 +37,7 @@ export const CodeEditor = ({fileName,initialValue,onChange}:Props) => {
                 keymap.of([indentWithTab]),
                 minimap(),
                 indentationMarkers(),
+                suggestions(fileName),
                 EditorView.updateListener.of((update)=>{
                     if(update.docChanged){
                         onChange(update.state.doc.toString());
