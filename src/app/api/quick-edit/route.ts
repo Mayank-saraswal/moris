@@ -1,6 +1,6 @@
 
 import { google } from "@ai-sdk/google";
-import { generateObject, generateText, Output } from "ai";
+import { generateText, Output } from "ai";
 import { NextResponse } from "next/server";
 import { z } from "zod";
 
@@ -14,7 +14,7 @@ const quickEditSchema = z.object({
 
 })
 
-const URL_REGEX = /^https?:\/\/[^\s/$.?#].[^\s]*$/i;
+const URL_REGEX = /https?:\/\/[^\s/$.?#].[^\s]*/ig;
 
 
 
@@ -93,7 +93,7 @@ export async function POST(req: Request) {
             .replace("{instruction}", instruction)
             .replace("{documentation}", documentationContext);
 
-        const { text } = await generateText({
+        const { output } = await generateText({
             model: google("gemini-2.5-flash"),
             prompt,
             output: Output.object({
@@ -101,7 +101,7 @@ export async function POST(req: Request) {
             })
         })
 
-        return NextResponse.json({ editedCode: text }, { status: 200 });
+        return NextResponse.json({ editedCode: output.editedCode }, { status: 200 });
 
 
     } catch (error) {

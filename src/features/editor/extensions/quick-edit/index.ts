@@ -12,12 +12,20 @@ export const quickEditState = StateField.define<boolean>({
     update: (value, transaction) => {
         for (let effect of transaction.effects) {
             if (effect.is(showQuickEditEffect)) {
+                if (effect.value === false && currentAbortController) {
+                    currentAbortController.abort();
+                    currentAbortController = null;
+                }
                 return effect.value;
             }
         }
         if (transaction.selection) {
             const selection = transaction.state.selection.main;
             if (selection.empty) {
+                if (value === true && currentAbortController) {
+                    currentAbortController.abort();
+                    currentAbortController = null;
+                }
                 return false;
             }
         }
