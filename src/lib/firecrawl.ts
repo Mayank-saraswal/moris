@@ -1,5 +1,5 @@
 import FireCrawl from "@mendable/firecrawl-js";
 
 export const firecrawl = new FireCrawl({
-    apiKey: process.env.FIRECRAWL_API_KEY || "fc-build-placeholder",
+    apiKey: process.env.FIRECRAWL_API_KEY!
 });
