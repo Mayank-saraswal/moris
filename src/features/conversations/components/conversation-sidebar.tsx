@@ -86,6 +86,7 @@ export const ConversationSidebar = ({ projectId }: ConversationSidebarProps) => 
         } catch (error) {
             toast.error("Failed to send message");
         }
+        setInput("");
        
     }
 
