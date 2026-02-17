@@ -8,6 +8,7 @@ import {
   AlertTriangleIcon,
   RefreshCwIcon,
 } from "lucide-react";
+import { ImportGithubDialog } from "./import-github-dialog";
 
 import { useWebContainer } from "@/features/preview/hooks/use-webcontainer";
 import { PreviewSettingsPopover } from "@/features/preview/components/preview-settings-popover";
