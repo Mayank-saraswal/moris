@@ -8,6 +8,8 @@ import { FaGithub } from "react-icons/fa";
 import { Allotment } from "allotment";
 import { FileExplorer } from "./file-explorer";
 import { EditorView } from "@/features/editor/components/editor-view";
+import { PreviewView } from "./preview-view";
+import { ExportPopover } from "./export-popover";
 
 
 
@@ -51,10 +53,7 @@ export const ProjectIdView = ({ projectId }: { projectId: Id<"projects"> }) => {
                 <Tab label="Preview" isActive={activeView === "preview"} onClick={()=>setActiveView("preview")}/>
                 
                 <div className="flex-1 flex justify-end h-full">
-                    <div  className="flex items-center gap-1.5 h-full px-3 cursor-pointer text-muted-foreground border-l hover:bg-accent/30">
-                        <FaGithub className="size-3.5"/>
-                        <span className="text-sm">Export</span>
-                    </div>
+                   <ExportPopover projectId={projectId}/>
 
                 </div>
             </nav>
@@ -78,7 +77,7 @@ export const ProjectIdView = ({ projectId }: { projectId: Id<"projects"> }) => {
             </div>
 
             <div className={cn("absolute inset-0", activeView === "preview" ? "visible" : "invisible")}>
-                <div>Preview</div>
+               <PreviewView projectId={projectId} />
 
             </div>
             </div>
