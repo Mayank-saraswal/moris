@@ -30,7 +30,6 @@ export const importGithubRepo = inngest.createFunction(
                     internalKey,
                     projectId,
                     status: "failed",
-                    importError: event.data.error.message,
                 });
             });
         },
@@ -67,22 +66,14 @@ export const importGithubRepo = inngest.createFunction(
                 return data;
             } catch {
                 // Fallback to master branch
-                try {
-                    const { data } = await octokit.rest.git.getTree({
-                        owner,
-                        repo,
-                        tree_sha: "master",
-                        recursive: "1",
-                    });
-                    return data;
-                } catch (error: any) {
-                    if (error.status === 404) {
-                        throw new NonRetriableError(
-                            "GitHub repository not found or access denied. Please ensure the token has sufficient permissions."
-                        );
-                    }
-                    throw error;
-                }
+                const { data } = await octokit.rest.git.getTree({
+                    owner,
+                    repo,
+                    tree_sha: "master",
+                    recursive: "1",
+                });
+
+                return data;
             }
         });
 

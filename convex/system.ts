@@ -526,14 +526,12 @@ export const updateImportStatus = mutation({
         v.literal("failed")
       )
     ),
-    importError: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
     validateInternalKey(args.internalKey);
 
-    await ctx.db.patch(args.projectId, {
+    await ctx.db.patch("projects", args.projectId, {
       importStatus: args.status,
-      importError: args.importError,
       updatedAt: Date.now(),
     });
   },
@@ -552,15 +550,13 @@ export const updateExportStatus = mutation({
       )
     ),
     repoUrl: v.optional(v.string()),
-    exportError: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
     validateInternalKey(args.internalKey);
 
-    await ctx.db.patch(args.projectId, {
+    await ctx.db.patch("projects", args.projectId, {
       exportStatus: args.status,
       exportRepoUrl: args.repoUrl,
-      exportError: args.exportError,
       updatedAt: Date.now(),
     });
   },

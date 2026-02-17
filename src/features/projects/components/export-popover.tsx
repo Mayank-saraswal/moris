@@ -59,7 +59,6 @@ export const ExportPopover = ({ projectId }: ExportPopoverProps) => {
 
     const exportStatus = project?.exportStatus;
     const exportRepoUrl = project?.exportRepoUrl;
-    const exportError = (project as any)?.exportError;
 
     const form = useForm({
         defaultValues: {
@@ -179,8 +178,8 @@ export const ExportPopover = ({ projectId }: ExportPopoverProps) => {
                 <div className="flex flex-col items-center gap-3">
                     <XCircleIcon className="size-6 text-rose-500" />
                     <p className="text-sm font-medium">Unable to export</p>
-                    <p className="text-xs text-muted-foreground text-center px-2">
-                        {exportError || "Something went wrong. Please try again."}
+                    <p className="text-xs text-muted-foreground text-center">
+                        Something went wrong. Please try again.
                     </p>
                     <Button
                         size="sm"
