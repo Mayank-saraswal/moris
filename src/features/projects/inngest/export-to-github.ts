@@ -34,12 +34,14 @@ export const exportToGithub = inngest.createFunction(
             if (!internalKey) return;
 
             const { projectId } = event.data.event.data as ExportToGithubEvent;
+            const error = event.data.error;
 
             await step.run("set-failed-status", async () => {
                 await convex.mutation(api.system.updateExportStatus, {
                     internalKey,
                     projectId,
                     status: "failed",
+                    exportError: error.message,
                 });
             });
         }
@@ -79,12 +81,21 @@ export const exportToGithub = inngest.createFunction(
 
         // Create the new repository with auto_init to have an initial commit
         const { data: repo } = await step.run("create-repo", async () => {
-            return await octokit.rest.repos.createForAuthenticatedUser({
-                name: repoName,
-                description: description || `Exported from Polaris`,
-                private: visibility === "private",
-                auto_init: true,
-            });
+            try {
+                return await octokit.rest.repos.createForAuthenticatedUser({
+                    name: repoName,
+                    description: description || `Exported from Polaris`,
+                    private: visibility === "private",
+                    auto_init: true,
+                });
+            } catch (error: any) {
+                if (error.status === 404) {
+                    throw new NonRetriableError(
+                        "GitHub returned 404. This usually means your token lacks permissions to create repositories. Please ensure you have granted repository access."
+                    );
+                }
+                throw error;
+            }
         });
 
         // Wait for GitHub to initialize the repo (auto_init is async on GitHub's side)

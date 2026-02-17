@@ -7,7 +7,9 @@ export default defineSchema({
         ownerId: v.string(),
         updatedAt: v.number(),
         importStatus: v.optional(v.union(v.literal("importing"), v.literal("completed"), v.literal("failed"))),
+        importError: v.optional(v.string()),
         exportStatus: v.optional(v.union(v.literal("exporting"), v.literal("completed"), v.literal("failed"), v.literal("cancelled"))),
+        exportError: v.optional(v.string()),
         exportRepoUrl: v.optional(v.string()),
         settings: v.optional(
             v.object({
@@ -27,10 +29,10 @@ export default defineSchema({
         parentId: v.optional(v.id("files")),
         type: v.union(v.literal("file"), v.literal("folder")),
         updatedAt: v.number(),
-        
+
     }).index("by_project", ["projectId"])
-    .index("by_parent", ["parentId"])
-    .index("by_project_parent", ["projectId", "parentId"]),
+        .index("by_parent", ["parentId"])
+        .index("by_project_parent", ["projectId", "parentId"]),
 
 
     conversations: defineTable({
@@ -45,10 +47,10 @@ export default defineSchema({
         role: v.union(v.literal("user"), v.literal("assistant")),
         content: v.string(),
         status: v.optional(v.union(v.literal("processing"), v.literal("completed"), v.literal("cancelled"))),
-        
-    }).index("by_conversation", ["conversationId"])
-    .index("by_project_status", ["projectId", "status"])
 
-    
-         
+    }).index("by_conversation", ["conversationId"])
+        .index("by_project_status", ["projectId", "status"])
+
+
+
 })
