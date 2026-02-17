@@ -5,8 +5,8 @@ import { Id } from "../../../../convex/_generated/dataModel";
 import { NonRetriableError } from "inngest";
 import { convex } from "@/lib/convex-client";
 import { api } from "../../../../convex/_generated/api";
-import { 
-  CODING_AGENT_SYSTEM_PROMPT, 
+import {
+  CODING_AGENT_SYSTEM_PROMPT,
   TITLE_GENERATOR_SYSTEM_PROMPT
 } from "./constants";
 import { DEFAULT_CONVERSATION_TITLE } from "../constants";
@@ -37,7 +37,7 @@ export const processMessage = inngest.createFunction(
     ],
     onFailure: async ({ event, step }) => {
       const { messageId } = event.data.event.data as MessageEvent;
-      const internalKey = process.env.POLARIS_CONVEX_INTERNAL_KEY;
+      const internalKey = process.env.MORIS_CONVEX_INTERNAL_KEY;
 
       // Update the message with error content
       if (internalKey) {
@@ -56,17 +56,17 @@ export const processMessage = inngest.createFunction(
     event: "message/sent",
   },
   async ({ event, step }) => {
-    const { 
-      messageId, 
+    const {
+      messageId,
       conversationId,
       projectId,
       message
     } = event.data as MessageEvent;
 
-    const internalKey = process.env.POLARIS_CONVEX_INTERNAL_KEY; 
+    const internalKey = process.env.MORIS_CONVEX_INTERNAL_KEY;
 
     if (!internalKey) {
-      throw new NonRetriableError("POLARIS_CONVEX_INTERNAL_KEY is not configured");
+      throw new NonRetriableError("MORIS_CONVEX_INTERNAL_KEY is not configured");
     }
 
     // TODO: Check if this is needed
@@ -114,23 +114,23 @@ export const processMessage = inngest.createFunction(
       conversation.title === DEFAULT_CONVERSATION_TITLE;
 
     if (shouldGenerateTitle) {
-       const titleAgent = createAgent({
+      const titleAgent = createAgent({
         name: "title-generator",
         system: TITLE_GENERATOR_SYSTEM_PROMPT,
         model: anthropic({
           model: "claude-3-5-haiku-20241022",
           defaultParameters: { temperature: 0, max_tokens: 50 },
         }),
-       });
+      });
 
-       const { output } = await titleAgent.run(message, { step });
+      const { output } = await titleAgent.run(message, { step });
 
-       const textMessage = output.find(
+      const textMessage = output.find(
         (m) => m.type === "text" && m.role === "assistant"
       );
 
       if (textMessage?.type === "text") {
-         const title = 
+        const title =
           typeof textMessage.content === "string"
             ? textMessage.content.trim()
             : textMessage.content
@@ -155,11 +155,11 @@ export const processMessage = inngest.createFunction(
       name: "polaris",
       description: "An expert AI coding assistant",
       system: systemPrompt,
-       model: anthropic({
-        model: "claude-opus-4-20250514",
-        defaultParameters: { temperature: 0.3, max_tokens: 16000 }
-       }),
-       tools: [
+      model: anthropic({
+        model: "claude-3-5-sonnet-20240620",
+        defaultParameters: { temperature: 0.3, max_tokens: 4096 }
+      }),
+      tools: [
         createListFilesTool({ internalKey, projectId }),
         createReadFilesTool({ internalKey }),
         createUpdateFileTool({ internalKey }),
@@ -168,7 +168,7 @@ export const processMessage = inngest.createFunction(
         createRenameFileTool({ internalKey }),
         createDeleteFilesTool({ internalKey }),
         createScrapeUrlsTool(),
-       ],
+      ],
     });
 
     // Create network with single agent

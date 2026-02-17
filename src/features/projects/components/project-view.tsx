@@ -11,6 +11,7 @@ import { useCreateProject } from "../hooks/use-projects";
 import { useEffect, useState } from 'react';
 import { ProjectsCommandDialog } from './projects-command-dialog';
 import { ImportGithubDialog } from './import-github-dialog';
+import { NewProjectDialog } from "./new-project-dialog";
 const font = Poppins({
     subsets: ["latin"],
     weight: ["400", "500", "600", "700"],
@@ -20,6 +21,7 @@ export const ProjectView = () => {
     const [commandDialogOpen, setCommandDialogOpen] = useState(false);
     const createProject= useCreateProject();
      const [importDialogOpen, setImportDialogOpen] = useState(false);
+     const [newProjectDialogOpen, setNewProjectDialogOpen] = useState(false);
     
     useEffect(()=>{
         const handleKeyDown = (e: KeyboardEvent) => {
@@ -31,6 +33,10 @@ export const ProjectView = () => {
                 if (e.key === "i") {
           e.preventDefault();
           setImportDialogOpen(true);
+        }
+        if (e.key === "j") {
+          e.preventDefault();
+          setNewProjectDialogOpen(true);
         }
             }
         };
@@ -48,6 +54,10 @@ export const ProjectView = () => {
         open={importDialogOpen}
         onOpenChange={setImportDialogOpen}
       />
+      <NewProjectDialog
+        open={newProjectDialogOpen}
+        onOpenChange={setNewProjectDialogOpen}
+      />
         <div className="min-h-screen bg-sidebar  flex flex-col items-center justify-center p-6 md:p-16">
             <div className="w-full max-w-sm mx-auto flex flex-col gap-4 items-center">
                 <div className="flex justify-between gap-4 w-full items-center">
@@ -64,18 +74,7 @@ export const ProjectView = () => {
                         <Button
                         variant="outline"
 
-                        onClick={()=>{
-                            const projectName = uniqueNamesGenerator({
-                                dictionaries:[adjectives,animals,colors],
-                                separator:"-",
-                                style:"lowerCase",
-                                length:3
-                            })
-                            createProject({
-                                name: projectName,
-                                
-                            })
-                        }}
+                        onClick={() => setNewProjectDialogOpen(true)}
                         className="h-full items-start justify-start p-4 bg-background border flex flex-col gap-6 rounded-none"
                         >
                             <div  className="flex items-center justify-between w-full">

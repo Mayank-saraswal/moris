@@ -2,7 +2,6 @@ import { inngest } from "./client";
 import { generateText } from "ai";
 import { anthropic } from "@ai-sdk/anthropic";
 import { firecrawl } from "@/lib/firecrawl";
-import { google } from "@ai-sdk/google";
 
 const URL_REGEX = /https?:\/\/(?:[a-zA-Z0-9-]+\.)+[a-zA-Z]{2,}(?:\/[^\s]*)?/g;
 
@@ -35,14 +34,14 @@ export const demoGenerateText = inngest.createFunction(
 
         return await step.run("generate-text", async () => {
             return await generateText({
-                model: anthropic("claude-3-5-sonnet"),
+                model: anthropic("claude-3-5-sonnet-20240620"),
                 prompt: finalPrompt,
-                experimental_telemetry:{
-                    isEnabled:true,
-                    recordInputs:true,
-                    recordOutputs:true
+                experimental_telemetry: {
+                    isEnabled: true,
+                    recordInputs: true,
+                    recordOutputs: true
                 }
             });
-        }); 
+        });
     },
 );

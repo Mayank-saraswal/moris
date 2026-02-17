@@ -33,8 +33,14 @@ export const Tree = ({
     
 
 
-    const renameFile = useRenameFile();
-    const deleteFile = useDeleteFile();
+    const renameFile = useRenameFile({
+    projectId,
+    parentId: item.parentId,
+  });
+  const deleteFile = useDeleteFile({
+    projectId,
+    parentId: item.parentId,
+  });
     const createFolder = useCreateFolder();
     const createFile = useCreateFile();
     const folderContents = useFolderContents({ projectId, parentId: item._id, enabled: item.type === "folder" && isOpen });

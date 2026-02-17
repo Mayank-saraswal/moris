@@ -64,9 +64,9 @@ export const useRenameProject = () => {
 
             const existingProjects = localStore.getQuery(api.projects.get);
 
-            if (!existingProjects !== undefined) {
+            if (existingProjects !== undefined) {
                 localStore.setQuery(api.projects.get, {},
-                    existingProjects?.map((project) => {
+                    existingProjects.map((project) => {
                         return project._id === args.id ? { ...project, name: args.name, updatedAt: Date.now() } : project
                     })
                 );
