@@ -8,74 +8,85 @@ import { inngest } from "@/inngest/client";
 import { api } from "../../../../../convex/_generated/api";
 
 const requestSchema = z.object({
-  url: z.url(),
+    url: z.url(),
 });
 
 function parseGitHubUrl(url: string) {
-  const match = url.match(/github\.com\/([^/]+)\/([^/]+)/);
-  if (!match) {
-    throw new Error("Invalid GitHub URL");
-  }
+    const match = url.match(/github\.com\/([^/]+)\/([^/]+)/);
+    if (!match) {
+        throw new Error("Invalid GitHub URL");
+    }
 
-  return { owner: match[1], repo: match[2].replace(/\.git$/, "") };
+    return { owner: match[1], repo: match[2].replace(/\.git$/, "") };
 }
 
 export async function POST(request: Request) {
-  const { userId } = await auth();
+    const { userId, has } = await auth();
+    const hasPro = has({ plan: "pro" });
 
-  if (!userId) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
+    if (!hasPro) {
+        return NextResponse.json({ error: "Pro plan required" }, { status: 403 });
+    }
 
-  const body = await request.json();
-  const { url } = requestSchema.parse(body);
+    if (!userId) {
+        return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
 
-  const { owner, repo } = parseGitHubUrl(url);
-  // https://github.com/AntonioErdeljac/cursor-dev
-  // { owner: "AntonioErdeljac", repo: "cursor-dev" }
+    const body = await request.json();
+    const { url } = requestSchema.parse(body);
 
-  const client = await clerkClient();
-  const tokens = await client.users.getUserOauthAccessToken(
-    userId,
-    "github"
-  );
-  const githubToken = tokens.data[0]?.token;
+    let result;
+    try {
+        result = parseGitHubUrl(url);
+    } catch (e) {
+        return NextResponse.json({ error: "Invalid GitHub URL" }, { status: 400 });
+    }
+    const { owner, repo } = result;
+    // https://github.com/AntonioErdeljac/cursor-dev
+    // { owner: "AntonioErdeljac", repo: "cursor-dev" }
 
-  if (!githubToken) {
-    return NextResponse.json(
-      { error: "GitHub not connected. Please reconnect your GitHub account." },
-      { status: 400 }
+    const client = await clerkClient();
+    const tokens = await client.users.getUserOauthAccessToken(
+        userId,
+        "github"
     );
-  }
+    const githubToken = tokens.data[0]?.token;
 
-  const internalKey = process.env.POLARIS_CONVEX_INTERNAL_KEY;
+    if (!githubToken) {
+        return NextResponse.json(
+            { error: "GitHub not connected. Please reconnect your GitHub account." },
+            { status: 400 }
+        );
+    }
 
-  if (!internalKey) {
-    return NextResponse.json(
-      { error: "Server configuration error" },
-      { status: 500 }
-    );
-  }
+    const internalKey = process.env.MORIS_CONVEX_INTERNAL_KEY;
 
-  const projectId = await convex.mutation(api.system.createProject, {
-    internalKey,
-    name: repo,
-    ownerId: userId,
-  });
+    if (!internalKey) {
+        return NextResponse.json(
+            { error: "Server configuration error" },
+            { status: 500 }
+        );
+    }
 
-  const event = await inngest.send({
-    name: "github/import.repo",
-    data: {
-      owner,
-      repo,
-      projectId,
-      githubToken,
-    },
-  });
+    const projectId = await convex.mutation(api.system.createProject, {
+        internalKey,
+        name: repo,
+        ownerId: userId,
+    });
 
-  return NextResponse.json({ 
-    success: true, 
-    projectId, 
-    eventId: event.ids[0]
-  });
+    const event = await inngest.send({
+        name: "github/import.repo",
+        data: {
+            owner,
+            repo,
+            projectId,
+            githubToken,
+        },
+    });
+
+    return NextResponse.json({
+        success: true,
+        projectId,
+        eventId: event.ids[0]
+    });
 };

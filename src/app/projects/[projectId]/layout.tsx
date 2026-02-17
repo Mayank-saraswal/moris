@@ -6,7 +6,7 @@ const ProjectLayout = async ({
     params
 }: {
     children: React.ReactNode;
-    params: Promise<{ projectId: string }>;
+    params: Promise<{ projectId: string }>
 }) => {
     const { projectId } = await params;
 
