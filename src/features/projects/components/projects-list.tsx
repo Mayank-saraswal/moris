@@ -21,7 +21,7 @@ const getProjectIcon = (project: Doc<"projects">) => {
     }
 
     if (project.importStatus === "failed") {
-        return <AlertCircleIcon className="size-3.5 text-rose-500" title={(project as any).importError || "Import failed"} />
+        return <AlertCircleIcon className="size-3.5 text-muted-foreground" />
     }
 
     if (project.importStatus === "importing") {
