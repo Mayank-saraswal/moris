@@ -3,7 +3,6 @@
 import { useMutation, useQuery } from "convex/react";
 import { api } from "../../../../convex/_generated/api";
 import { Id } from "../../../../convex/_generated/dataModel";
-import { execSync } from "child_process";
 
 
 export const useProject = (projectId: Id<"projects">) => {
@@ -65,23 +64,26 @@ export const useRenameProject = () => {
 
             const existingProjects = localStore.getQuery(api.projects.get);
 
-            if (!existingProjects !== undefined){
-                localStore.setQuery(api.projects.get, {}, 
-                    existingProjects?.map((project)=>{
-                        return project._id === args.id ? {...project, name: args.name, updatedAt: Date.now()} : project
+            if (!existingProjects !== undefined) {
+                localStore.setQuery(api.projects.get, {},
+                    existingProjects?.map((project) => {
+                        return project._id === args.id ? { ...project, name: args.name, updatedAt: Date.now() } : project
                     })
                 );
             }
 
-            
 
-            
-            
+
 
 
         }
     )
 };
 
+
+export const useUpdateProjectSettings = () => {
+    // TODO: add optimistic mutation
+    return useMutation(api.projects.updateSettings);
+};
 
 
