@@ -1,7 +1,7 @@
 import { generateText, Output } from "ai";
 import { NextRequest, NextResponse } from "next/server";
 import z from "zod";
-import { anthropic } from "@ai-sdk/anthropic";
+import { openrouter } from "@/lib/openrouter";
 import { auth } from "@clerk/nextjs/server";
 
 const suggestionSchema = z.object({
@@ -58,7 +58,8 @@ export async function POST(request: Request) {
             textBeforeCursor,
             textAfterCursor,
             cursor,
-            lineNumber
+            lineNumber,
+            model
 
 
         } = await request.json();
@@ -77,12 +78,12 @@ export async function POST(request: Request) {
             .replace("{code}", code);
 
         const { output } = await generateText({
-            model: anthropic("claude-3-5-haiku-20241022"),
+            model: openrouter(model || "openai/gpt-4o-mini"),
             output: Output.object({ schema: suggestionSchema }),
             prompt,
         })
 
-        return NextResponse.json({ suggestion: output.suggestion }, { status: 200 });
+        return NextResponse.json({ suggestion: output?.suggestion ?? "" }, { status: 200 });
     }
     catch (error) {
         console.error("Error generating code suggestion:", error);

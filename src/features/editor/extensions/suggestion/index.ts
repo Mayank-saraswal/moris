@@ -1,6 +1,7 @@
 import { StateField, StateEffect, Transaction, Prec } from "@codemirror/state"
 import { DecorationSet, Decoration, ViewPlugin, ViewUpdate, EditorView, WidgetType, keymap } from "@codemirror/view"
 import { fetcher } from "./fetcher";
+import { modelStore } from "../model-store";
 
 
 
@@ -75,6 +76,7 @@ const gereratePayload = (view: EditorView, fileName: string) => {
         textAfterCursor: currentLine.text.slice(currentInLine),
         lineNumber: currentLine.number,
         cursor: cursorPosition, // Add cursor here
+        model: modelStore.suggestionModel,
     }
 
 

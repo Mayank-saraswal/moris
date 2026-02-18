@@ -1,6 +1,7 @@
 import { StateField, StateEffect } from "@codemirror/state"
 import { Tooltip, EditorView, keymap, showTooltip } from "@codemirror/view"
 import { fetcher } from "./fetcher";
+import { modelStore } from "../model-store";
 
 export const showQuickEditEffect = StateEffect.define<boolean>();
 let editorView: EditorView | null = null;
@@ -89,7 +90,8 @@ const createQuickEditTooltipField = (state: EditorView["state"]): readonly Toolt
                     const editedCode = await fetcher({
                         selectedCode,
                         fullCode,
-                        instruction
+                        instruction,
+                        model: modelStore.quickEditModel,
                     }, currentAbortController.signal);
 
 

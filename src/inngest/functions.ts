@@ -1,6 +1,6 @@
 import { inngest } from "./client";
 import { generateText } from "ai";
-import { anthropic } from "@ai-sdk/anthropic";
+import { openrouter } from "@/lib/openrouter";
 import { firecrawl } from "@/lib/firecrawl";
 
 const URL_REGEX = /https?:\/\/(?:[a-zA-Z0-9-]+\.)+[a-zA-Z]{2,}(?:\/[^\s]*)?/g;
@@ -34,7 +34,7 @@ export const demoGenerateText = inngest.createFunction(
 
         return await step.run("generate-text", async () => {
             return await generateText({
-                model: anthropic("claude-3-5-sonnet-20240620"),
+                model: openrouter("anthropic/claude-3.5-haiku"),
                 prompt: finalPrompt,
                 experimental_telemetry: {
                     isEnabled: true,

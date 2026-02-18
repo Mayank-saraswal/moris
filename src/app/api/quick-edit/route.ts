@@ -1,5 +1,5 @@
 
-import { google } from "@ai-sdk/google";
+import { openrouter } from "@/lib/openrouter";
 import { generateObject, generateText, Output } from "ai";
 import { NextResponse } from "next/server";
 import { z } from "zod";
@@ -48,7 +48,7 @@ export async function POST(req: Request) {
         if (!userId) {
             return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
         }
-        const { selectedCode, fullCode, instruction } = await req.json();
+        const { selectedCode, fullCode, instruction, model } = await req.json();
         if (!selectedCode) {
             return NextResponse.json({ error: "Selected code is required" }, { status: 400 });
         }
@@ -94,7 +94,7 @@ export async function POST(req: Request) {
             .replace("{documentation}", documentationContext);
 
         const { text } = await generateText({
-            model: google("gemini-2.5-flash"),
+            model: openrouter(model || "anthropic/claude-3.5-haiku"),
             prompt,
             output: Output.object({
                 schema: quickEditSchema,
