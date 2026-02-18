@@ -1,4 +1,4 @@
-import { createAgent, anthropic, createNetwork } from '@inngest/agent-kit';
+import { createAgent, openai, createNetwork } from '@inngest/agent-kit';
 
 import { inngest } from "@/inngest/client";
 import { Id } from "../../../../convex/_generated/dataModel";
@@ -24,6 +24,7 @@ interface MessageEvent {
   conversationId: Id<"conversations">;
   projectId: Id<"projects">;
   message: string;
+  model?: string;
 };
 
 export const processMessage = inngest.createFunction(
@@ -60,8 +61,11 @@ export const processMessage = inngest.createFunction(
       messageId,
       conversationId,
       projectId,
-      message
+      message,
+      model: userModel
     } = event.data as MessageEvent;
+
+    const selectedModel = userModel || "anthropic/claude-3.5-haiku";
 
     const internalKey = process.env.MORIS_CONVEX_INTERNAL_KEY;
 
@@ -117,9 +121,11 @@ export const processMessage = inngest.createFunction(
       const titleAgent = createAgent({
         name: "title-generator",
         system: TITLE_GENERATOR_SYSTEM_PROMPT,
-        model: anthropic({
-          model: "claude-3-5-haiku-20241022",
-          defaultParameters: { temperature: 0, max_tokens: 50 },
+        model: openai({
+          model: selectedModel,
+          baseUrl: "https://openrouter.ai/api/v1",
+          apiKey: process.env.OPENROUTER_API_KEY,
+          defaultParameters: { temperature: 0, max_completion_tokens: 50 },
         }),
       });
 
@@ -155,9 +161,11 @@ export const processMessage = inngest.createFunction(
       name: "polaris",
       description: "An expert AI coding assistant",
       system: systemPrompt,
-      model: anthropic({
-        model: "claude-3-5-sonnet-20240620",
-        defaultParameters: { temperature: 0.3, max_tokens: 4096 }
+      model: openai({
+        model: selectedModel,
+        baseUrl: "https://openrouter.ai/api/v1",
+        apiKey: process.env.OPENROUTER_API_KEY,
+        defaultParameters: { temperature: 0.3, max_completion_tokens: 4096 }
       }),
       tools: [
         createListFilesTool({ internalKey, projectId }),

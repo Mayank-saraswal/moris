@@ -13,6 +13,7 @@ const suggestionRequestSchema = z.object({
     textAfterCursor: z.string(),
     cursor: z.number(),
     lineNumber: z.number(),
+    model: z.string().optional(),
 });
 
 const suggestionResponseSchema = z.object({

@@ -7,6 +7,7 @@ const editRequestSchema = z.object({
     selectedCode: z.string(),
     fullCode: z.string(),
     instruction: z.string(),
+    model: z.string().optional(),
 });
 
 const editResponseSchema = z.object({
