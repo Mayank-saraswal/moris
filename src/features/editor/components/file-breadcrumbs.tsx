@@ -3,13 +3,13 @@ import { FileIcon } from "@react-symbols/icons/utils";
 
 
 import { useFilePath } from "@/features/projects/hooks/use-files";
-import { Id } from "../../../../convex/_generated/dataModel";
+
 import { useEditor } from "../hooks/use-editor";
 
 import { BreadcrumbPage, Breadcrumb, BreadcrumbList, BreadcrumbItem, BreadcrumbLink, BreadcrumbSeparator } from "@/components/ui/breadcrumb";
-import { ifError } from "assert";
 
-export const FileBreadcrumbs = ({ projectId }: { projectId: Id<"projects"> }) => {
+
+export const FileBreadcrumbs = ({ projectId }: { projectId: string }) => {
     const { activeTabId } = useEditor(projectId);
     const filePath = useFilePath(activeTabId);
 
@@ -35,7 +35,7 @@ export const FileBreadcrumbs = ({ projectId }: { projectId: Id<"projects"> }) =>
                 {filePath?.map((item, index) => {
                     const isLast = index === filePath.length - 1;
                     return (
-                        <React.Fragment key={item._id}>
+                        <React.Fragment key={item.id}>
                             <BreadcrumbItem className="text-sm">
                                 {isLast ? (
                                     <BreadcrumbPage className="flex items-center gap-1">

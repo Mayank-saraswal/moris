@@ -3,6 +3,7 @@ import { NextRequest, NextResponse } from "next/server";
 import z from "zod";
 import { openrouter } from "@/lib/openrouter";
 import { auth } from "@clerk/nextjs/server";
+import { rateLimiters } from "@/lib/redis";
 
 const suggestionSchema = z.object({
     suggestion: z
@@ -48,6 +49,13 @@ export async function POST(request: Request) {
         const { userId } = await auth()
         if (!userId) {
             return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+        }
+
+        // Rate limit suggestions
+        const limiter = rateLimiters.suggestions();
+        const { success: withinLimit } = await limiter.limit(userId);
+        if (!withinLimit) {
+            return NextResponse.json({ error: "Too many requests" }, { status: 429 });
         }
         const {
             fileName,

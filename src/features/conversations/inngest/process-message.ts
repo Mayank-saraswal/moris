@@ -1,31 +1,31 @@
-import { createAgent, openai, createNetwork } from '@inngest/agent-kit';
+import { createAgent, openai, createNetwork } from "@inngest/agent-kit";
 
 import { inngest } from "@/inngest/client";
-import { Id } from "../../../../convex/_generated/dataModel";
 import { NonRetriableError } from "inngest";
-import { convex } from "@/lib/convex-client";
-import { api } from "../../../../convex/_generated/api";
+import { prisma } from "@/lib/prisma";
+import { deductTokens } from "@/lib/tokens";
 import {
   CODING_AGENT_SYSTEM_PROMPT,
-  TITLE_GENERATOR_SYSTEM_PROMPT
+  TITLE_GENERATOR_SYSTEM_PROMPT,
 } from "./constants";
 import { DEFAULT_CONVERSATION_TITLE } from "../constants";
-import { createReadFilesTool } from './tools/read-files';
-import { createListFilesTool } from './tools/list-files';
-import { createUpdateFileTool } from './tools/update-file';
-import { createCreateFilesTool } from './tools/create-files';
-import { createCreateFolderTool } from './tools/create-folder';
-import { createRenameFileTool } from './tools/rename-file';
-import { createDeleteFilesTool } from './tools/delete-files';
-import { createScrapeUrlsTool } from './tools/scrape-urls';
+import { createReadFilesTool } from "./tools/read-files";
+import { createListFilesTool } from "./tools/list-files";
+import { createUpdateFileTool } from "./tools/update-file";
+import { createCreateFilesTool } from "./tools/create-files";
+import { createCreateFolderTool } from "./tools/create-folder";
+import { createRenameFileTool } from "./tools/rename-file";
+import { createDeleteFilesTool } from "./tools/delete-files";
+import { createScrapeUrlsTool } from "./tools/scrape-urls";
 
 interface MessageEvent {
-  messageId: Id<"messages">;
-  conversationId: Id<"conversations">;
-  projectId: Id<"projects">;
+  messageId: string;
+  conversationId: string;
+  projectId: string;
   message: string;
   model?: string;
-};
+  userId?: string;
+}
 
 export const processMessage = inngest.createFunction(
   {
@@ -38,20 +38,18 @@ export const processMessage = inngest.createFunction(
     ],
     onFailure: async ({ event, step }) => {
       const { messageId } = event.data.event.data as MessageEvent;
-      const internalKey = process.env.MORIS_CONVEX_INTERNAL_KEY;
 
-      // Update the message with error content
-      if (internalKey) {
-        await step.run("update-message-on-failure", async () => {
-          await convex.mutation(api.system.updateMessageContent, {
-            internalKey,
-            messageId,
+      await step.run("update-message-on-failure", async () => {
+        await prisma.message.update({
+          where: { id: messageId },
+          data: {
             content:
               "My apologies, I encountered an error while processing your request. Let me know if you need anything else!",
-          });
+            status: "error",
+          },
         });
-      }
-    }
+      });
+    },
   },
   {
     event: "message/sent",
@@ -62,25 +60,19 @@ export const processMessage = inngest.createFunction(
       conversationId,
       projectId,
       message,
-      model: userModel
+      model: userModel,
+      userId,
     } = event.data as MessageEvent;
 
     const selectedModel = userModel || "anthropic/claude-3.5-haiku";
 
-    const internalKey = process.env.MORIS_CONVEX_INTERNAL_KEY;
-
-    if (!internalKey) {
-      throw new NonRetriableError("MORIS_CONVEX_INTERNAL_KEY is not configured");
-    }
-
-    // TODO: Check if this is needed
     await step.sleep("wait-for-db-sync", "1s");
 
     // Get conversation for title generation check
     const conversation = await step.run("get-conversation", async () => {
-      return await convex.query(api.system.getConversationById, {
-        internalKey,
-        conversationId,
+      return await prisma.conversation.findUnique({
+        where: { id: conversationId },
+        select: { id: true, title: true, projectId: true },
       });
     });
 
@@ -90,30 +82,30 @@ export const processMessage = inngest.createFunction(
 
     // Fetch recent messages for conversation context
     const recentMessages = await step.run("get-recent-messages", async () => {
-      return await convex.query(api.system.getRecentMessages, {
-        internalKey,
-        conversationId,
-        limit: 10,
+      return await prisma.message.findMany({
+        where: { conversationId },
+        orderBy: { createdAt: "desc" },
+        take: 10,
+        select: { id: true, role: true, content: true },
       });
     });
 
-    // Build system prompt with conversation history (exclude the current processing message)
+    // Build system prompt with conversation history
     let systemPrompt = CODING_AGENT_SYSTEM_PROMPT;
 
-    // Filter out the current processing message and empty messages
-    const contextMessages = recentMessages.filter(
-      (msg) => msg._id !== messageId && msg.content.trim() !== ""
-    );
+    const contextMessages = recentMessages
+      .reverse()
+      .filter((msg: { id: string; content: string; role: string }) => msg.id !== messageId && msg.content.trim() !== "");
 
     if (contextMessages.length > 0) {
       const historyText = contextMessages
-        .map((msg) => `${msg.role.toUpperCase()}: ${msg.content}`)
+        .map((msg: { role: string; content: string }) => `${msg.role.toUpperCase()}: ${msg.content}`)
         .join("\n\n");
 
       systemPrompt += `\n\n## Previous Conversation (for context only - do NOT repeat these responses):\n${historyText}\n\n## Current Request:\nRespond ONLY to the user's new message below. Do not repeat or reference your previous responses.`;
     }
 
-    // Generate conversation title if it's still the default
+    // Generate conversation title if still default
     const shouldGenerateTitle =
       conversation.title === DEFAULT_CONVERSATION_TITLE;
 
@@ -146,28 +138,27 @@ export const processMessage = inngest.createFunction(
 
         if (title) {
           await step.run("update-conversation-title", async () => {
-            await convex.mutation(api.system.updateConversationTitle, {
-              internalKey,
-              conversationId,
-              title,
+            await prisma.conversation.update({
+              where: { id: conversationId },
+              data: { title },
             });
           });
         }
       }
     }
 
-    // Track the LLM's reasoning text and timing
+    // Track reasoning for real-time "thinking" updates
     const thinkingStartTime = Date.now();
     const reasoningChunks: string[] = [];
     const actionLog: string[] = [];
 
-    // Helper to extract text from a TextMessage content
-    const extractText = (content: string | Array<{ type: string; text: string }>): string => {
+    const extractText = (
+      content: string | Array<{ type: string; text: string }>
+    ): string => {
       if (typeof content === "string") return content;
       return content.map((c) => c.text).join("");
     };
 
-    // Tool labels for human-readable descriptions
     const toolLabels: Record<string, string> = {
       listFiles: "Browsing the project structure",
       readFiles: "Reading file contents",
@@ -179,9 +170,8 @@ export const processMessage = inngest.createFunction(
       scrapeUrls: "Fetching URL content",
     };
 
-    // Flush current thinking state to Convex
+    // Flush thinking state to Supabase (for real-time UI via Supabase Realtime)
     const flushThinking = async () => {
-      // Combine reasoning text + action descriptions
       const parts: string[] = [];
       if (reasoningChunks.length > 0) {
         parts.push(reasoningChunks.join("\n\n"));
@@ -191,21 +181,20 @@ export const processMessage = inngest.createFunction(
       }
       const content = parts.join("\n\n") || "Analyzing your request...";
       try {
-        await convex.mutation(api.system.setThinkingContent, {
-          internalKey,
-          messageId,
-          content,
-          duration: Date.now() - thinkingStartTime,
+        await prisma.message.update({
+          where: { id: messageId },
+          data: {
+            thinking: content,
+          },
         });
       } catch {
-        // Don't let thinking event failures break the agent
+        // Don't let thinking updates break the agent
       }
     };
 
-    // Write initial thinking state immediately
     await flushThinking();
 
-    // Create the coding agent with file tools
+    // Create the coding agent with PROJECT-SCOPED tools
     const codingAgent = createAgent({
       name: "polaris",
       description: "An expert AI coding assistant",
@@ -214,21 +203,20 @@ export const processMessage = inngest.createFunction(
         model: selectedModel,
         baseUrl: "https://openrouter.ai/api/v1",
         apiKey: process.env.OPENROUTER_API_KEY,
-        defaultParameters: { temperature: 0.3, max_completion_tokens: 4096 }
+        defaultParameters: { temperature: 0.3, max_completion_tokens: 4096 },
       }),
       tools: [
-        createListFilesTool({ internalKey, projectId }),
-        createReadFilesTool({ internalKey }),
-        createUpdateFileTool({ internalKey }),
-        createCreateFilesTool({ projectId, internalKey }),
-        createCreateFolderTool({ projectId, internalKey }),
-        createRenameFileTool({ internalKey }),
-        createDeleteFilesTool({ internalKey }),
+        createListFilesTool({ projectId }),
+        createReadFilesTool(),
+        createUpdateFileTool(),
+        createCreateFilesTool({ projectId }),
+        createCreateFolderTool({ projectId }),
+        createRenameFileTool(),
+        createDeleteFilesTool(),
         createScrapeUrlsTool(),
       ],
       lifecycle: {
         onResponse: async ({ result }) => {
-          // Capture the LLM's text reasoning
           for (const msg of result.output) {
             if (msg.type === "text" && msg.role === "assistant") {
               const text = extractText(msg.content);
@@ -236,7 +224,6 @@ export const processMessage = inngest.createFunction(
                 reasoningChunks.push(text.trim());
               }
             }
-            // Log tool calls as readable actions
             if (msg.type === "tool_call") {
               for (const tool of msg.tools ?? []) {
                 const label = toolLabels[tool.name] ?? `Running ${tool.name}`;
@@ -244,13 +231,10 @@ export const processMessage = inngest.createFunction(
               }
             }
           }
-
-          // Flush immediately so UI updates in real-time
           await flushThinking();
           return result;
         },
         onFinish: async ({ result }) => {
-          // Capture any final reasoning text
           for (const msg of result.output) {
             if (msg.type === "text" && msg.role === "assistant") {
               const text = extractText(msg.content);
@@ -259,14 +243,11 @@ export const processMessage = inngest.createFunction(
               }
             }
           }
-
-          // Final flush with complete content
           await flushThinking();
           return result;
         },
       },
     });
-
 
     // Create network with single agent
     const network = createNetwork({
@@ -282,24 +263,20 @@ export const processMessage = inngest.createFunction(
           (m) => m.type === "tool_call"
         );
 
-        // Anthropic outputs text AND tool calls together
-        // Only stop if there's text WITHOUT tool calls (final response)
         if (hasTextResponse && !hasToolCalls) {
           return undefined;
         }
         return codingAgent;
-      }
+      },
     });
 
-    // Run the agent network at the top level (not inside step.run)
-    // The AUTOMATIC_PARALLEL_INDEXING warning is benign and doesn't affect execution
+    // Run the agent network
     let assistantResponse =
       "I processed your request. Let me know if you need anything else!";
 
     try {
       const result = await network.run(message);
 
-      // Extract the assistant's text response from the last agent result
       const lastResult = result.state.results.at(-1);
       const textMessage = lastResult?.output.find(
         (m) => m.type === "text" && m.role === "assistant"
@@ -324,16 +301,39 @@ export const processMessage = inngest.createFunction(
       }
     }
 
-    // Update the assistant message with the response (this also sets status to completed)
+    // Update the assistant message with the response
     await step.run("update-assistant-message", async () => {
-      await convex.mutation(api.system.updateMessageContent, {
-        internalKey,
-        messageId,
-        content: assistantResponse,
-      })
+      await prisma.message.update({
+        where: { id: messageId },
+        data: {
+          content: assistantResponse,
+          status: "completed",
+          model: selectedModel,
+        },
+      });
     });
 
-    return { success: true, messageId, conversationId };
+    // Deduct tokens (estimate if exact usage unavailable)
+    if (userId) {
+      await step.run("deduct-tokens", async () => {
+        // Rough estimate: prompt ~2000 tokens, response ~1000 tokens
+        // In production, OpenRouter's generation ID endpoint provides exact counts
+        const estimatedPromptTokens = Math.ceil(message.length / 4) + 2000;
+        const estimatedCompletionTokens = Math.ceil(
+          assistantResponse.length / 4
+        );
 
+        await deductTokens({
+          userId,
+          model: selectedModel,
+          promptTokens: estimatedPromptTokens,
+          completionTokens: estimatedCompletionTokens,
+          action: "conversation",
+          projectId,
+        });
+      });
+    }
+
+    return { success: true, messageId, conversationId };
   }
 );

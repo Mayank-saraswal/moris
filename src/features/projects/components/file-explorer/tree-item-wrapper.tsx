@@ -3,7 +3,7 @@ import { cn } from "@/lib/utils";
 
 
 import { getItemPadding } from "./constants";
-import { Doc } from "../../../../../convex/_generated/dataModel";
+
 import { CommandIcon } from "lucide-react";
 
 export const TreeItemWrapper = ({
@@ -19,7 +19,7 @@ export const TreeItemWrapper = ({
     onCreateFolder,
 }: {
 
-    item: Doc<"files">;
+    item: { id: string; name: string; path: string; type: "file" | "folder"; blobPath: string | null; };
     isActive?: boolean;
     level: number;
     children: React.ReactNode;

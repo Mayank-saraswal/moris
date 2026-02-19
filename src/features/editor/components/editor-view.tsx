@@ -1,5 +1,5 @@
-import { useFile, useUpdateFile } from "@/features/projects/hooks/use-files";
-import { Id } from "../../../../convex/_generated/dataModel";
+import { useFile, useFileContent, useUpdateFile } from "@/features/projects/hooks/use-files";
+
 import { useEditor } from "../hooks/use-editor";
 import { FileBreadcrumbs } from "./file-breadcrumbs";
 import { TopNavigation } from "./top-navigation";
@@ -27,13 +27,14 @@ import {
 const DEBOUNCE_TIME = 1000;
 
 
-export const EditorView = ({ projectId }: { projectId: Id<"projects"> }) => {
+export const EditorView = ({ projectId }: { projectId: string }) => {
     const { activeTabId } = useEditor(projectId);
-    const activeFile = useFile(activeTabId);
+    const { data: activeFile } = useFile(activeTabId);
+    const { data: fileContent } = useFileContent(projectId, activeTabId);
     const updateFile = useUpdateFile();
     const timeoutRef = useRef<NodeJS.Timeout | null>(null);
-    const isActiveFileBinary = activeFile && activeFile.storageId;
-    const isActiveFileText = activeFile && !activeFile.storageId;
+    const isActiveFileBinary = activeFile && activeFile.blobPath && !fileContent;
+    const isActiveFileText = activeFile && fileContent !== undefined;
     const {
         suggestionModel, setSuggestionModel,
         quickEditModel, setQuickEditModel
@@ -71,15 +72,15 @@ export const EditorView = ({ projectId }: { projectId: Id<"projects"> }) => {
 
                 {isActiveFileText && (
                     <CodeEditor
-                        key={activeFile._id}
-                        initialValue={activeFile.content}
+                        key={activeFile.id}
+                        initialValue={fileContent?.content ?? ""}
                         onChange={(content: string) => {
                             if (timeoutRef.current) {
                                 clearTimeout(timeoutRef.current);
                             }
                             timeoutRef.current = setTimeout(() => {
-                                updateFile({
-                                    id: activeFile._id,
+                                updateFile.mutate({
+                                    fileId: activeFile.id,
                                     content: content,
                                 })
                             }, DEBOUNCE_TIME);

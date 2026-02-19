@@ -6,6 +6,7 @@ import { z } from "zod";
 
 import { firecrawl } from "@/lib/firecrawl";
 import { auth } from "@clerk/nextjs/server";
+import { rateLimiters } from "@/lib/redis";
 
 const quickEditSchema = z.object({
     editedCode: z
@@ -48,6 +49,14 @@ export async function POST(req: Request) {
         if (!userId) {
             return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
         }
+
+        // Rate limit quick edits
+        const limiter = rateLimiters.quickEdit();
+        const { success: withinLimit } = await limiter.limit(userId);
+        if (!withinLimit) {
+            return NextResponse.json({ error: "Too many requests" }, { status: 429 });
+        }
+
         const { selectedCode, fullCode, instruction, model } = await req.json();
         if (!selectedCode) {
             return NextResponse.json({ error: "Selected code is required" }, { status: 400 });

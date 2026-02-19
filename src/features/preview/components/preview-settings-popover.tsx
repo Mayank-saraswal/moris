@@ -16,7 +16,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { Field, FieldLabel, FieldDescription } from "@/components/ui/field";
 
-import { Doc, Id } from "../../../../convex/_generated/dataModel";
+
 
 const formSchema = z.object({
     installCommand: z.string(),
@@ -24,8 +24,8 @@ const formSchema = z.object({
 });
 
 interface PreviewSettingsPopoverProps {
-    projectId: Id<"projects">;
-    initialValues?: Doc<"projects">["settings"];
+    projectId: string;
+    initialValues?: Record<string, unknown> | null;
     onSave?: () => void;
 };
 
@@ -39,14 +39,14 @@ export const PreviewSettingsPopover = ({
 
     const form = useForm({
         defaultValues: {
-            installCommand: initialValues?.installCommand ?? "",
-            devCommand: initialValues?.devCommand ?? "",
+            installCommand: (initialValues?.installCommand as string) ?? "",
+            devCommand: (initialValues?.devCommand as string) ?? "",
         },
         validators: {
             onSubmit: formSchema,
         },
         onSubmit: async ({ value }) => {
-            await updateSettings({
+            await updateSettings.mutateAsync({
                 id: projectId,
                 settings: {
                     installCommand: value.installCommand || undefined,
@@ -61,8 +61,8 @@ export const PreviewSettingsPopover = ({
     const handleOpenChange = (isOpen: boolean) => {
         if (isOpen) {
             form.reset({
-                installCommand: initialValues?.installCommand ?? "",
-                devCommand: initialValues?.devCommand ?? "",
+                installCommand: (initialValues?.installCommand as string) ?? "",
+                devCommand: (initialValues?.devCommand as string) ?? "",
             });
         }
         setOpen(isOpen);

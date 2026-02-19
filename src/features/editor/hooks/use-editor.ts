@@ -1,13 +1,13 @@
 import { useCallback } from "react";
-import { Id } from "../../../../convex/_generated/dataModel";
+
 import { useEditorStore } from "../store/use-editor-store";
 
-export const useEditor = (projectId: Id<"projects">) => {
+export const useEditor = (projectId: string) => {
     const store = useEditorStore();
     const tabState = useEditorStore((state)=>state.getTabState(projectId));
 
     const openFile= useCallback((
-        fileId:Id<"files">,
+        fileId:string,
         options:{
             pinned?:boolean
         }
@@ -20,11 +20,11 @@ export const useEditor = (projectId: Id<"projects">) => {
         store.closeAllTabs(projectId);
     },[store,projectId])
 
-    const closeTab = useCallback((fileId:Id<"files">)=>{
+    const closeTab = useCallback((fileId:string)=>{
         store.closeTab(projectId,fileId);
     },[store,projectId])
 
-    const setActiveTab = useCallback((fileId:Id<"files">)=>{
+    const setActiveTab = useCallback((fileId:string)=>{
         store.setActiveTab(projectId,fileId);
     },[store,projectId])
 

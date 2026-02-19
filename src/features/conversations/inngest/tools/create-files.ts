@@ -1,18 +1,14 @@
 import { z } from "zod";
 import { createTool } from "@inngest/agent-kit";
-
-import { convex } from "@/lib/convex-client";
-
-import { api } from "../../../../../convex/_generated/api";
-import { Id } from "../../../../../convex/_generated/dataModel";
+import { prisma } from "@/lib/prisma";
+import { uploadTextFile, getBlobPath } from "@/lib/file-storage";
 
 interface CreateFilesToolOptions {
-  projectId: Id<"projects">;
-  internalKey: string;
+  projectId: string;
 }
 
 const paramsSchema = z.object({
-  parentId: z.string(),
+  parentPath: z.string(),
   files: z
     .array(
       z.object({
@@ -25,17 +21,16 @@ const paramsSchema = z.object({
 
 export const createCreateFilesTool = ({
   projectId,
-  internalKey,
 }: CreateFilesToolOptions) => {
   return createTool({
     name: "createFiles",
     description:
       "Create multiple files at once in the same folder. Use this to batch create files that share the same parent folder. More efficient than creating files one by one.",
     parameters: z.object({
-      parentId: z
+      parentPath: z
         .string()
         .describe(
-          "The ID of the parent folder. Use empty string for root level. Must be a valid folder ID from listFiles."
+          "The path of the parent folder. Use empty string for root level. E.g. 'src/components'"
         ),
       files: z
         .array(
@@ -52,46 +47,58 @@ export const createCreateFilesTool = ({
         return `Error: ${parsed.error.issues[0].message}`;
       }
 
-      const { parentId, files } = parsed.data;
+      const { parentPath, files } = parsed.data;
 
       try {
         return await toolStep?.run("create-files", async () => {
-          let resolvedParentId: Id<"files"> | undefined;
+          const created: string[] = [];
+          const failed: string[] = [];
 
-          if (parentId && parentId !== "") {
+          for (const file of files) {
             try {
-              resolvedParentId = parentId as Id<"files">;
-              const parentFolder = await convex.query(api.system.getFileById, {
-                internalKey,
-                fileId: resolvedParentId,
+              const filePath = parentPath
+                ? `${parentPath}/${file.name}`
+                : file.name;
+
+              // Create file record in Supabase
+              const newFile = await prisma.file.create({
+                data: {
+                  projectId,
+                  name: file.name,
+                  path: filePath,
+                  type: "file",
+                  size: file.content.length,
+                },
               });
-              if (!parentFolder) {
-                return `Error: Parent folder with ID "${parentId}" not found. Use listFiles to get valid folder IDs.`;
-              }
-              if (parentFolder.type !== "folder") {
-                return `Error: The ID "${parentId}" is a file, not a folder. Use a folder ID as parentId.`;
-              }
-            } catch {
-              return `Error: Invalid parentId "${parentId}". Use listFiles to get valid folder IDs, or use empty string for root level.`;
+
+              // Upload content to Azure Blob
+              const blobPath = await uploadTextFile(
+                projectId,
+                newFile.id,
+                file.content,
+                file.name
+              );
+
+              // Update with blob path
+              await prisma.file.update({
+                where: { id: newFile.id },
+                data: { blobPath },
+              });
+
+              created.push(file.name);
+            } catch (error) {
+              failed.push(
+                `${file.name} (${error instanceof Error ? error.message : "Unknown error"})`
+              );
             }
           }
 
-          const results = await convex.mutation(api.system.createFiles, {
-            internalKey,
-            projectId,
-            parentId: resolvedParentId,
-            files,
-          });
-
-          const created = results.filter((r) => !r.error);
-          const failed = results.filter((r) => r.error);
-
           let response = `Created ${created.length} file(s)`;
           if (created.length > 0) {
-            response += `: ${created.map((r) => r.name).join(", ")}`;
+            response += `: ${created.join(", ")}`;
           }
           if (failed.length > 0) {
-            response += `. Failed: ${failed.map((r) => `${r.name} (${r.error})`).join(", ")}`;
+            response += `. Failed: ${failed.join(", ")}`;
           }
 
           return response;
@@ -99,6 +106,6 @@ export const createCreateFilesTool = ({
       } catch (error) {
         return `Error creating files: ${error instanceof Error ? error.message : "Unknown error"}`;
       }
-    }
+    },
   });
 };

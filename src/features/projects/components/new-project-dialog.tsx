@@ -23,7 +23,7 @@ import {
   type PromptInputMessage,
 } from "@/components/ai-elements/prompt-input";
 
-import { Id } from "../../../../convex/_generated/dataModel";
+
 
 interface NewProjectDialogProps {
   open: boolean;
@@ -48,7 +48,7 @@ export const NewProjectDialog = ({
         .post("/api/projects/create-with-prompt", {
           json: { prompt: message.text.trim() },
         })
-        .json<{ projectId: Id<"projects"> }>();
+        .json<{ projectId: string }>();
 
       toast.success("Project created");
       onOpenChange(false);

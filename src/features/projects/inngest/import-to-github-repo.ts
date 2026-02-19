@@ -1,18 +1,15 @@
-import ky from "ky";
 import { Octokit } from "octokit";
 import { isBinaryFile } from "isbinaryfile";
 import { NonRetriableError } from "inngest";
 
-import { convex } from "@/lib/convex-client";
+import { prisma } from "@/lib/prisma";
 import { inngest } from "@/inngest/client";
-
-import { api } from "../../../../convex/_generated/api";
-import { Id } from "../../../../convex/_generated/dataModel";
+import { uploadTextFile, uploadBinaryFile } from "@/lib/file-storage";
 
 interface ImportGithubRepoEvent {
     owner: string;
     repo: string;
-    projectId: Id<"projects">;
+    projectId: string;
     githubToken: string;
 }
 
@@ -20,16 +17,12 @@ export const importGithubRepo = inngest.createFunction(
     {
         id: "import-github-repo",
         onFailure: async ({ event, step }) => {
-            const internalKey = process.env.MORIS_CONVEX_INTERNAL_KEY;
-            if (!internalKey) return;
-
             const { projectId } = event.data.event.data as ImportGithubRepoEvent;
 
             await step.run("set-failed-status", async () => {
-                await convex.mutation(api.system.updateImportStatus, {
-                    internalKey,
-                    projectId,
-                    status: "failed",
+                await prisma.project.update({
+                    where: { id: projectId },
+                    data: { settings: { importStatus: "failed" } },
                 });
             });
         },
@@ -39,19 +32,11 @@ export const importGithubRepo = inngest.createFunction(
         const { owner, repo, projectId, githubToken } =
             event.data as ImportGithubRepoEvent;
 
-        const internalKey = process.env.MORIS_CONVEX_INTERNAL_KEY;
-        if (!internalKey) {
-            throw new NonRetriableError("MORIS_CONVEX_INTERNAL_KEY is not configured");
-        };
-
         const octokit = new Octokit({ auth: githubToken });
 
         // Cleanup any existing files in the project
         await step.run("cleanup-project", async () => {
-            await convex.mutation(api.system.cleanup, {
-                internalKey,
-                projectId
-            });
+            await prisma.file.deleteMany({ where: { projectId } });
         });
 
         const tree = await step.run("fetch-repo-tree", async () => {
@@ -62,59 +47,43 @@ export const importGithubRepo = inngest.createFunction(
                     tree_sha: "main",
                     recursive: "1",
                 });
-
                 return data;
             } catch {
-                // Fallback to master branch
                 const { data } = await octokit.rest.git.getTree({
                     owner,
                     repo,
                     tree_sha: "master",
                     recursive: "1",
                 });
-
                 return data;
             }
         });
 
-        // Sort folders by depth so parents are created before children
-        // Input:  [{ path: "src/components" }, { path: "src" }, { path: "src/components/ui" }]
-        // Output: [{ path: "src" }, { path: "src/components" }, { path: "src/components/ui" }]
+        // Sort folders by depth so parents are created first
         const folders = tree.tree
             .filter((item) => item.type === "tree" && item.path)
             .sort((a, b) => {
                 const aDepth = a.path ? a.path.split("/").length : 0;
                 const bDepth = b.path ? b.path.split("/").length : 0;
-
                 return aDepth - bDepth;
             });
 
-        // Return the folder map from the step so it can be used in subsequent steps
-        // (Inngest serializes step results, so we use a plain object instead of Map)
-        const folderIdMap = await step.run("create-folders", async () => {
-            const map: Record<string, Id<"files">> = {};
-
+        // Create folder records in Prisma
+        await step.run("create-folders", async () => {
             for (const folder of folders) {
-                if (!folder.path) {
-                    continue;
-                }
+                if (!folder.path) continue;
 
-                const pathParts = folder.path.split("/");
-                const name = pathParts.pop()!;
-                const parentPath = pathParts.join("/");
-                const parentId = parentPath ? map[parentPath] : undefined;
+                const name = folder.path.split("/").pop()!;
 
-                const folderId = await convex.mutation(api.system.createFolder, {
-                    internalKey,
-                    projectId,
-                    name,
-                    parentId,
+                await prisma.file.create({
+                    data: {
+                        projectId,
+                        name,
+                        path: folder.path,
+                        type: "folder",
+                    },
                 });
-
-                map[folder.path] = folderId;
             }
-
-            return map;
         });
 
         // Get all files (blobs) from the tree
@@ -124,9 +93,7 @@ export const importGithubRepo = inngest.createFunction(
 
         await step.run("create-files", async () => {
             for (const file of allFiles) {
-                if (!file.path || !file.sha) {
-                    continue;
-                }
+                if (!file.path || !file.sha) continue;
 
                 try {
                     const { data: blob } = await octokit.rest.git.getBlob({
@@ -137,43 +104,42 @@ export const importGithubRepo = inngest.createFunction(
 
                     const buffer = Buffer.from(blob.content, "base64");
                     const isBinary = await isBinaryFile(buffer);
+                    const name = file.path.split("/").pop()!;
 
-                    const pathParts = file.path.split("/");
-                    const name = pathParts.pop()!;
-                    const parentPath = pathParts.join("/");
-                    const parentId = parentPath ? folderIdMap[parentPath] : undefined;
-
-                    if (isBinary) {
-                        const uploadUrl = await convex.mutation(
-                            api.system.generateUploadUrl,
-                            { internalKey }
-                        );
-
-                        const { storageId } = await ky
-                            .post(uploadUrl, {
-                                headers: { "Content-Type": "application/octet-stream" },
-                                body: buffer,
-                            })
-                            .json<{ storageId: Id<"_storage"> }>();
-
-                        await convex.mutation(api.system.createBinaryFile, {
-                            internalKey,
+                    // Create file record
+                    const newFile = await prisma.file.create({
+                        data: {
                             projectId,
                             name,
-                            storageId,
-                            parentId,
-                        });
+                            path: file.path,
+                            type: "file",
+                            size: buffer.length,
+                        },
+                    });
+
+                    // Upload content to Azure Blob
+                    let blobPath: string;
+                    if (isBinary) {
+                        blobPath = await uploadBinaryFile(
+                            projectId,
+                            newFile.id,
+                            buffer,
+                            name
+                        );
                     } else {
                         const content = buffer.toString("utf-8");
-
-                        await convex.mutation(api.system.createFile, {
-                            internalKey,
+                        blobPath = await uploadTextFile(
                             projectId,
-                            name,
+                            newFile.id,
                             content,
-                            parentId,
-                        });
+                            name
+                        );
                     }
+
+                    await prisma.file.update({
+                        where: { id: newFile.id },
+                        data: { blobPath },
+                    });
                 } catch {
                     console.error(`Failed to import file: ${file.path}`);
                 }
@@ -181,10 +147,9 @@ export const importGithubRepo = inngest.createFunction(
         });
 
         await step.run("set-completed-status", async () => {
-            await convex.mutation(api.system.updateImportStatus, {
-                internalKey,
-                projectId,
-                status: "completed",
+            await prisma.project.update({
+                where: { id: projectId },
+                data: { settings: { importStatus: "completed" } },
             });
         });
 

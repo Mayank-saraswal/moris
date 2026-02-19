@@ -1,23 +1,13 @@
 import { z } from "zod";
 import { createTool } from "@inngest/agent-kit";
-
-import { convex } from "@/lib/convex-client";
-
-import { api } from "../../../../../convex/_generated/api";
-import { Id } from "../../../../../convex/_generated/dataModel";
-
-interface RenameFileToolOptions {
-  internalKey: string;
-}
+import { prisma } from "@/lib/prisma";
 
 const paramsSchema = z.object({
   fileId: z.string().min(1, "File ID is required"),
   newName: z.string().min(1, "New name is required"),
 });
 
-export const createRenameFileTool = ({
-  internalKey,
-}: RenameFileToolOptions) => {
+export const createRenameFileTool = () => {
   return createTool({
     name: "renameFile",
     description: "Rename a file or folder",
@@ -33,10 +23,9 @@ export const createRenameFileTool = ({
 
       const { fileId, newName } = parsed.data;
 
-      // Validate file exists before running the step
-      const file = await convex.query(api.system.getFileById, {
-        internalKey,
-        fileId: fileId as Id<"files">,
+      const file = await prisma.file.findUnique({
+        where: { id: fileId },
+        select: { id: true, name: true, path: true },
       });
 
       if (!file) {
@@ -45,17 +34,21 @@ export const createRenameFileTool = ({
 
       try {
         return await toolStep?.run("rename-file", async () => {
-          await convex.mutation(api.system.renameFile, {
-            internalKey,
-            fileId: fileId as Id<"files">,
-            newName,
+          // Update path to reflect new name
+          const pathParts = file.path.split("/");
+          pathParts[pathParts.length - 1] = newName;
+          const newPath = pathParts.join("/");
+
+          await prisma.file.update({
+            where: { id: fileId },
+            data: { name: newName, path: newPath },
           });
 
-          return `Renamed "${file.name}" to "${newName}" successfully`;        
-        })
+          return `Renamed "${file.name}" to "${newName}" successfully`;
+        });
       } catch (error) {
         return `Error renaming file: ${error instanceof Error ? error.message : "Unknown error"}`;
       }
-    }
+    },
   });
 };

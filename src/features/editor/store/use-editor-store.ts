@@ -1,10 +1,10 @@
 import { create } from "zustand";
-import { Id } from "../../../../convex/_generated/dataModel";
+
 
 interface TabState {
-    openTabs: Id<"files">[];
-    activeTabId: Id<"files"> | null;
-    previewTabId: Id<"files"> | null;
+    openTabs: string[];
+    activeTabId: string | null;
+    previewTabId: string | null;
 
 }
 
@@ -16,20 +16,20 @@ const defaultTabState: TabState = {
 }
 
 interface EditorStore {
-    tabs: Map<Id<"projects">, TabState>;
-    getTabState: (projectId: Id<"projects">) => TabState;
+    tabs: Map<string, TabState>;
+    getTabState: (projectId: string) => TabState;
 
 
     openFile: (
-        projectId: Id<"projects">,
-        fileId: Id<"files">,
+        projectId: string,
+        fileId: string,
         options: { pinned?: boolean, }
     ) => void,
 
-    closeTab: (projectId: Id<"projects">, fileId: Id<"files">) => void,
+    closeTab: (projectId: string, fileId: string) => void,
 
-    closeAllTabs: (projectId: Id<"projects">) => void,
-    setActiveTab: (projectId: Id<"projects">, fileId: Id<"files">) => void,
+    closeAllTabs: (projectId: string) => void,
+    setActiveTab: (projectId: string, fileId: string) => void,
 
 
 };

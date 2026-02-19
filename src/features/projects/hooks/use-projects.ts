@@ -1,89 +1,95 @@
-/* eslint-disable react-hooks/purity */
+"use client";
 
-import { useMutation, useQuery } from "convex/react";
-import { api } from "../../../../convex/_generated/api";
-import { Id } from "../../../../convex/_generated/dataModel";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 
-
-export const useProject = (projectId: Id<"projects">) => {
-    return useQuery(api.projects.getById, { id: projectId })
+// ---- API helpers ----
+async function fetchAPI<T>(url: string): Promise<T> {
+    const res = await fetch(url);
+    if (!res.ok) throw new Error(`API error: ${res.status}`);
+    return res.json();
 }
 
+async function mutateAPI<T>(url: string, data: unknown): Promise<T> {
+    const res = await fetch(url, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(data),
+    });
+    if (!res.ok) throw new Error(`API error: ${res.status}`);
+    return res.json();
+}
 
+// ---- Types ----
+export interface Project {
+    id: string;
+    name: string;
+    language: string;
+    framework: string | null;
+    settings: Record<string, unknown> | null;
+    createdAt: string;
+    updatedAt: string;
+}
 
+// ---- Hooks ----
+export const useProject = (projectId: string | null) => {
+    return useQuery({
+        queryKey: ["project", projectId],
+        queryFn: () => fetchAPI<Project>(`/api/projects/${projectId}`),
+        enabled: !!projectId,
+    });
+};
 
 export const useProjects = () => {
-    return useQuery(api.projects.get)
-}
+    return useQuery({
+        queryKey: ["projects"],
+        queryFn: () => fetchAPI<Project[]>("/api/projects"),
+    });
+};
 
 export const useProjectPartial = (limit: number) => {
-    return useQuery(api.projects.getPartial, {
-        limit
-
-    })
-}
+    return useQuery({
+        queryKey: ["projects", "partial", limit],
+        queryFn: () => fetchAPI<Project[]>(`/api/projects?limit=${limit}`),
+    });
+};
 
 export const useCreateProject = () => {
-    return useMutation(api.projects.create).withOptimisticUpdate(
-        (localStore, args) => {
-            const existingProjects = localStore.getQuery(api.projects.get);
+    const queryClient = useQueryClient();
 
-            if (!existingProjects) return;
-
-            const now = Date.now();
-            const newProject = {
-                _id: crypto.randomUUID() as Id<"projects">,
-                _creationTime: now,
-                name: args.name,
-                ownerId: "anonymous",
-                updatedAt: now,
-            };
-
-            localStore.setQuery(api.projects.get, {}, [
-                newProject,
-                ...existingProjects,
-            ]);
-        }
-    )
+    return useMutation({
+        mutationFn: (data: { name: string }) =>
+            mutateAPI<Project>("/api/projects", data),
+        onSuccess: () => {
+            queryClient.invalidateQueries({ queryKey: ["projects"] });
+        },
+    });
 };
-
 
 export const useRenameProject = () => {
-    return useMutation(api.projects.rename).withOptimisticUpdate(
-        (localStore, args) => {
+    const queryClient = useQueryClient();
 
-            const existingProject = localStore.getQuery(api.projects.getById, { id: args.id })
-
-            if (existingProject !== undefined && existingProject !== null) {
-                localStore.setQuery(api.projects.getById, { id: args.id }, {
-                    ...existingProject,
-                    name: args.name,
-                    updatedAt: Date.now(),
-                })
-            }
-
-            const existingProjects = localStore.getQuery(api.projects.get);
-
-            if (existingProjects !== undefined) {
-                localStore.setQuery(api.projects.get, {},
-                    existingProjects.map((project) => {
-                        return project._id === args.id ? { ...project, name: args.name, updatedAt: Date.now() } : project
-                    })
-                );
-            }
-
-
-
-
-
-        }
-    )
+    return useMutation({
+        mutationFn: (data: { id: string; name: string }) =>
+            mutateAPI<Project>(`/api/projects/${data.id}/rename`, {
+                name: data.name,
+            }),
+        onSuccess: (_, variables) => {
+            queryClient.invalidateQueries({ queryKey: ["project", variables.id] });
+            queryClient.invalidateQueries({ queryKey: ["projects"] });
+        },
+    });
 };
-
 
 export const useUpdateProjectSettings = () => {
-    // TODO: add optimistic mutation
-    return useMutation(api.projects.updateSettings);
+    const queryClient = useQueryClient();
+
+    return useMutation({
+        mutationFn: (data: { id: string; settings: Record<string, unknown> }) =>
+            mutateAPI(`/api/projects/${data.id}/settings`, {
+                settings: data.settings,
+            }),
+        onSuccess: (_, variables) => {
+            queryClient.invalidateQueries({ queryKey: ["project", variables.id] });
+        },
+    });
 };
-
-

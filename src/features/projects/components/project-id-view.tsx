@@ -1,7 +1,7 @@
 "use client"
 
 import { useProject } from "../hooks/use-projects";
-import { Id } from "../../../../convex/_generated/dataModel";
+
 import { cn } from "@/lib/utils";
 import { useState } from "react";
 import { Allotment } from "allotment";
@@ -43,7 +43,7 @@ const Tab = ({
     )
 }
 
-export const ProjectIdView = ({ projectId }: { projectId: Id<"projects"> }) => {
+export const ProjectIdView = ({ projectId }: { projectId: string }) => {
 
     const [activeView, setActiveView] = useState<"editor" | "preview">("editor");
     const [showTerminal, setShowTerminal] = useState(false);

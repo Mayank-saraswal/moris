@@ -18,10 +18,10 @@ import { Button } from "@/components/ui/button";
 
 import { useProject } from "../hooks/use-projects";
 
-import { Id } from "../../../../convex/_generated/dataModel";
 
-export const PreviewView = ({ projectId }: { projectId: Id<"projects"> }) => {
-  const project = useProject(projectId);
+
+export const PreviewView = ({ projectId }: { projectId: string }) => {
+  const { data: project } = useProject(projectId);
   const [showTerminal, setShowTerminal] = useState(true);
 
   const {
@@ -29,7 +29,7 @@ export const PreviewView = ({ projectId }: { projectId: Id<"projects"> }) => {
   } = useWebContainer({
     projectId,
     enabled: true,
-    settings: project?.settings,
+    settings: project?.settings as { installCommand?: string; devCommand?: string } | undefined,
   });
 
   const isLoading = status === "booting" || status === "installing";
