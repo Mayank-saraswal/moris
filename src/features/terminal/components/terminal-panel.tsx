@@ -4,7 +4,7 @@ import { useCallback, useEffect, useRef } from "react";
 import { PlusIcon, XIcon, TerminalSquareIcon } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useTerminalStore } from "../store/terminal-store";
-import { InteractiveTerminal } from "./interactive-terminal";
+import { TerminalTab } from "./terminal-tab";
 import { spawnShell } from "../utils/spawn-shell";
 
 export const TerminalPanel = () => {
@@ -107,9 +107,10 @@ export const TerminalPanel = () => {
                             id === activeTerminalId ? "visible" : "invisible"
                         )}
                     >
-                        <InteractiveTerminal
+                        <TerminalTab
+                            id={id}
                             process={terminal.process}
-                            onProcessExit={() => handleProcessExit(id)}
+                            onExit={handleProcessExit}
                         />
                     </div>
                 ))}

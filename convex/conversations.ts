@@ -105,8 +105,8 @@ export const getMessages = query({
         return await ctx.db
             .query("messages")
             .withIndex("by_conversation", (q) => q.eq(("conversationId"), args.conversationId))
-            .order("asc")
-            .collect()
-            .then((msgs) => msgs.slice(-50));
+            .order("desc")
+            .take(50)
+            .then((msgs) => msgs.reverse());
     },
 });

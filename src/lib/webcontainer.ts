@@ -13,7 +13,14 @@ export const getWebContainer = async (): Promise<WebContainer> => {
         bootPromise = WebContainer.boot({ coep: "credentialless" });
     }
 
-    webcontainerInstance = await bootPromise;
+    const instance = await bootPromise;
+
+    if (bootPromise === null) {
+        instance.teardown();
+        throw new Error("WebContainer boot cancelled");
+    }
+
+    webcontainerInstance = instance;
     return webcontainerInstance;
 };
 

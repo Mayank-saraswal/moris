@@ -15,8 +15,8 @@ export const CONVERSATION_MODELS: ModelOption[] = [
     { id: "deepseek/deepseek-r1-0528", name: "DeepSeek R1", provider: "deepseek", thinking: true },
     { id: "openai/o3-mini", name: "o3-mini", provider: "openai", thinking: true },
     { id: "anthropic/claude-3.5-haiku", name: "Claude 3.5 Haiku", provider: "anthropic" },
-    { id: "stepfun/step-3.5-flash:free", name: "Step 3.5 Flash", provider: "stepfun" },
-    { id: "arcee-ai/trinity-large-preview:free", name: "Trinity Large Preview", provider: "arcee-ai" },
+    { id: "stepfun/step-3.5-flash:free", name: "Step 3.5 Flash", provider: "stepfun", thinking: true },
+
 ];
 
 export const SUGGESTION_MODELS: ModelOption[] = [
@@ -25,8 +25,8 @@ export const SUGGESTION_MODELS: ModelOption[] = [
     { id: "anthropic/claude-3.5-haiku", name: "Claude 3.5 Haiku", provider: "anthropic" },
     { id: "anthropic/claude-sonnet-4.5", name: "Claude Sonnet 4.5", provider: "anthropic" },
     { id: "google/gemini-3-flash-preview", name: "Gemini 3 Flash", provider: "google" },
-    { id: "stepfun/step-3.5-flash:free", name: "Step 3.5 Flash", provider: "stepfun" },
-    { id: "arcee-ai/trinity-large-preview:free", name: "Trinity Large Preview", provider: "arcee-ai" },
+    { id: "stepfun/step-3.5-flash:free", name: "Step 3.5 Flash", provider: "stepfun", thinking: true },
+
 ];
 
 export const QUICK_EDIT_MODELS: ModelOption[] = [
@@ -36,8 +36,8 @@ export const QUICK_EDIT_MODELS: ModelOption[] = [
     { id: "anthropic/claude-3.5-haiku", name: "Claude 3.5 Haiku", provider: "anthropic" },
     { id: "google/gemini-3-flash-preview", name: "Gemini 3 Flash", provider: "google" },
     { id: "openrouter/quasar-alpha", name: "Quasar Alpha", provider: "openrouter" },
-    { id: "stepfun/step-3.5-flash:free", name: "Step 3.5 Flash", provider: "stepfun" },
-    { id: "arcee-ai/trinity-large-preview:free", name: "Trinity Large Preview", provider: "arcee-ai" },
+    { id: "stepfun/step-3.5-flash:free", name: "Step 3.5 Flash", provider: "stepfun", thinking: true },
+
 ];
 
 export const DEFAULT_CONVERSATION_MODEL = CONVERSATION_MODELS[0].id;
