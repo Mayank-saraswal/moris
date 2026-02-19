@@ -1,7 +1,7 @@
 import { Id } from "../../../../convex/_generated/dataModel";
 import ky from "ky";
 import { useState } from "react";
-import { CopyIcon, HistoryIcon, PlusIcon, LoaderIcon, Plus, ChevronDownIcon, SparklesIcon, BrainIcon } from "lucide-react";
+import { CopyIcon, HistoryIcon, PlusIcon, LoaderIcon, Plus, ChevronDownIcon, SparklesIcon, BrainIcon, TerminalSquareIcon } from "lucide-react";
 import { toast } from "sonner";
 import {
     useConversation,
@@ -50,6 +50,9 @@ import {
     ModelSelectorLogoGroup,
     ModelSelectorName,
 } from "@/components/ai-elements/model-selector";
+import { ThinkingEvents } from "./thinking-events";
+import { TerminalPanel } from "@/features/terminal/components/terminal-panel";
+import { Allotment } from "allotment";
 
 
 
@@ -62,6 +65,7 @@ export const ConversationSidebar = ({ projectId }: ConversationSidebarProps) => 
     const [selectedConversationId, setSelectedConversationId] = useState<Id<"conversations"> | null>(null);
     const [pastConversationsOpen, setPastConversationsOpen] = useState(false);
     const [modelSelectorOpen, setModelSelectorOpen] = useState(false);
+    const [showTerminal, setShowTerminal] = useState(false);
     const conversations = useConversations(projectId);
     const activeConversationId = selectedConversationId ?? conversations?.[0]?._id ?? null;
     const activeConversation = useConversation(activeConversationId);
@@ -165,125 +169,152 @@ export const ConversationSidebar = ({ projectId }: ConversationSidebarProps) => 
 
                         </Button>
 
+                        <Button
+                            size="icon-xs"
+                            variant={showTerminal ? "default" : "highlight"}
+                            onClick={() => setShowTerminal((v) => !v)}
+                            title="Toggle Terminal"
+                        >
+                            <TerminalSquareIcon className="size-3.5" />
+                        </Button>
+
                     </div>
 
                 </div>
-                <Conversation className="flex-1 ">
-                    <ConversationContent>
-                        <div className="text-muted-foreground text-sm">
-                            {conversationMessages?.map((message, messageIndex) => (
-                                <Message key={message._id}
-                                    from={message.role}
-                                >
-                                    <MessageContent>
-                                        {message.role === "assistant" && message.status === "processing" ? (
-                                            <div className="flex items-center gap-2 text-muted-foreground">
-                                                <LoaderIcon className="size-3.5 animate-spin" />
-                                                <p>Thinking...</p>
-                                            </div>
-                                        ) :
-                                            message.status === "cancelled" ? (
-                                                <span className="text-muted-foreground italic">
-                                                    <p> Request Cancelled</p>
-                                                </span>
-                                            ) :
-                                                (
-                                                    <MessageResponse>
-                                                        {message.content}
-                                                    </MessageResponse>
-                                                )}
-                                    </MessageContent>
-                                    {message.role === "assistant" &&
-                                        message.status === "completed" &&
-                                        messageIndex === (conversationMessages?.length ?? 0) - 1 && (
-                                            <MessageActions>
-                                                <MessageAction
-                                                    onClick={() => {
-                                                        navigator.clipboard.writeText(message.content);
-                                                        toast.success("Message copied to clipboard");
-                                                    }}
-                                                    label="Copy"
-                                                >
-                                                    <CopyIcon className="size-3.5" />
-                                                </MessageAction>
-                                            </MessageActions>
-                                        )}
-                                </Message>
-                            ))}
-                        </div>
-                    </ConversationContent>
-                    <ConversationScrollButton />
-                </Conversation>
-                <div className="p-3">
-                    <PromptInput
-                        onSubmit={handleSubmit}
-                        className="mt-2 rounded-full! "
-
-                    >
-                        <PromptInputBody>
-                            <PromptInputTextarea
-                                placeholder="Ask anything..."
-                                onChange={(e) => setInput(e.target.value)}
-                                value={input}
-                            />
-                        </PromptInputBody>
-                        <PromptInputFooter>
-                            <div className="flex items-center gap-1">
-                                <ModelSelector open={modelSelectorOpen} onOpenChange={setModelSelectorOpen}>
-                                    <ModelSelectorTrigger asChild>
-                                        <Button
-                                            size="xs"
-                                            variant="ghost"
-                                            className="gap-1.5 text-xs text-muted-foreground hover:text-foreground"
-                                        >
-                                            <ModelSelectorLogo provider={selectedModelOption.provider} className="size-3" />
-                                            <span className="truncate max-w-[120px]">{selectedModelOption.name}</span>
-                                            {selectedModelOption.thinking && <BrainIcon className="size-3 text-purple-400" />}
-                                            <ChevronDownIcon className="size-3 opacity-50" />
-                                        </Button>
-                                    </ModelSelectorTrigger>
-                                    <ModelSelectorContent title="Select Model">
-                                        <ModelSelectorInput placeholder="Search models..." />
-                                        <ModelSelectorList>
-                                            <ModelSelectorEmpty>No models found.</ModelSelectorEmpty>
-                                            <ModelSelectorGroup heading="Models">
-                                                {CONVERSATION_MODELS.map((model) => (
-                                                    <ModelSelectorItem
-                                                        key={model.id}
-                                                        value={model.id}
-                                                        onSelect={() => {
-                                                            setConversationModel(model.id);
-                                                            setModelSelectorOpen(false);
-                                                        }}
-                                                        className="flex items-center gap-2"
-                                                    >
-                                                        <ModelSelectorLogoGroup>
-                                                            <ModelSelectorLogo provider={model.provider} />
-                                                        </ModelSelectorLogoGroup>
-                                                        <ModelSelectorName>{model.name}</ModelSelectorName>
-                                                        {model.thinking && (
-                                                            <span className="ml-auto flex items-center gap-1 text-[10px] text-purple-400 font-medium">
-                                                                <BrainIcon className="size-3" />
-                                                                Thinking
+                <Allotment vertical>
+                    <Allotment.Pane>
+                        <div className="flex flex-col h-full">
+                            <Conversation className="flex-1 ">
+                                <ConversationContent>
+                                    <div className="text-muted-foreground text-sm">
+                                        {conversationMessages?.map((message, messageIndex) => (
+                                            <Message key={message._id}
+                                                from={message.role}
+                                            >
+                                                <MessageContent>
+                                                    {message.role === "assistant" && message.thinkingContent && (
+                                                        <ThinkingEvents
+                                                            content={message.thinkingContent}
+                                                            duration={message.thinkingDuration}
+                                                            isProcessing={message.status === "processing"}
+                                                        />
+                                                    )}
+                                                    {message.role === "assistant" && message.status === "processing" && !message.thinkingContent ? (
+                                                        <div className="flex items-center gap-2 text-muted-foreground">
+                                                            <LoaderIcon className="size-3.5 animate-spin" />
+                                                            <p>Thinking...</p>
+                                                        </div>
+                                                    ) :
+                                                        message.status === "cancelled" ? (
+                                                            <span className="text-muted-foreground italic">
+                                                                <p> Request Cancelled</p>
                                                             </span>
-                                                        )}
-                                                    </ModelSelectorItem>
-                                                ))}
-                                            </ModelSelectorGroup>
-                                        </ModelSelectorList>
-                                    </ModelSelectorContent>
-                                </ModelSelector>
+                                                        ) :
+                                                            (
+                                                                <MessageResponse>
+                                                                    {message.content}
+                                                                </MessageResponse>
+                                                            )}
+                                                </MessageContent>
+                                                {message.role === "assistant" &&
+                                                    message.status === "completed" &&
+                                                    messageIndex === (conversationMessages?.length ?? 0) - 1 && (
+                                                        <MessageActions>
+                                                            <MessageAction
+                                                                onClick={() => {
+                                                                    navigator.clipboard.writeText(message.content);
+                                                                    toast.success("Message copied to clipboard");
+                                                                }}
+                                                                label="Copy"
+                                                            >
+                                                                <CopyIcon className="size-3.5" />
+                                                            </MessageAction>
+                                                        </MessageActions>
+                                                    )}
+                                            </Message>
+                                        ))}
+                                    </div>
+                                </ConversationContent>
+                                <ConversationScrollButton />
+                            </Conversation>
+                            <div className="p-3">
+                                <PromptInput
+                                    onSubmit={handleSubmit}
+                                    className="mt-2 rounded-full! "
+
+                                >
+                                    <PromptInputBody>
+                                        <PromptInputTextarea
+                                            placeholder="Ask anything..."
+                                            onChange={(e) => setInput(e.target.value)}
+                                            value={input}
+                                        />
+                                    </PromptInputBody>
+                                    <PromptInputFooter>
+                                        <div className="flex items-center gap-1">
+                                            <ModelSelector open={modelSelectorOpen} onOpenChange={setModelSelectorOpen}>
+                                                <ModelSelectorTrigger asChild>
+                                                    <Button
+                                                        size="xs"
+                                                        variant="ghost"
+                                                        className="gap-1.5 text-xs text-muted-foreground hover:text-foreground"
+                                                    >
+                                                        <ModelSelectorLogo provider={selectedModelOption.provider} className="size-3" />
+                                                        <span className="truncate max-w-[120px]">{selectedModelOption.name}</span>
+                                                        {selectedModelOption.thinking && <BrainIcon className="size-3 text-purple-400" />}
+                                                        <ChevronDownIcon className="size-3 opacity-50" />
+                                                    </Button>
+                                                </ModelSelectorTrigger>
+                                                <ModelSelectorContent title="Select Model">
+                                                    <ModelSelectorInput placeholder="Search models..." />
+                                                    <ModelSelectorList>
+                                                        <ModelSelectorEmpty>No models found.</ModelSelectorEmpty>
+                                                        <ModelSelectorGroup heading="Models">
+                                                            {CONVERSATION_MODELS.map((model) => (
+                                                                <ModelSelectorItem
+                                                                    key={model.id}
+                                                                    value={model.id}
+                                                                    onSelect={() => {
+                                                                        setConversationModel(model.id);
+                                                                        setModelSelectorOpen(false);
+                                                                    }}
+                                                                    className="flex items-center gap-2"
+                                                                >
+                                                                    <ModelSelectorLogoGroup>
+                                                                        <ModelSelectorLogo provider={model.provider} />
+                                                                    </ModelSelectorLogoGroup>
+                                                                    <ModelSelectorName>{model.name}</ModelSelectorName>
+                                                                    {model.thinking && (
+                                                                        <span className="ml-auto flex items-center gap-1 text-[10px] text-purple-400 font-medium">
+                                                                            <BrainIcon className="size-3" />
+                                                                            Thinking
+                                                                        </span>
+                                                                    )}
+                                                                </ModelSelectorItem>
+                                                            ))}
+                                                        </ModelSelectorGroup>
+                                                    </ModelSelectorList>
+                                                </ModelSelectorContent>
+                                            </ModelSelector>
+                                        </div>
+                                        <PromptInputSubmit
+                                            disabled={(isProcessing || isSending) ? false : !input.trim()}
+                                            status={(isProcessing || isSending) ? "streaming" : undefined}
+                                        />
+
+                                    </PromptInputFooter>
+                                </PromptInput>
+
+
                             </div>
-                            <PromptInputSubmit
-                                disabled={(isProcessing || isSending) ? false : !input.trim()}
-                                status={(isProcessing || isSending) ? "streaming" : undefined}
-                            />
-
-                        </PromptInputFooter>
-                    </PromptInput>
-
-
-                </div>
+                        </div>
+                    </Allotment.Pane>
+                    {showTerminal && (
+                        <Allotment.Pane minSize={120} preferredSize={200}>
+                            <TerminalPanel />
+                        </Allotment.Pane>
+                    )}
+                </Allotment>
             </div>
         </>
     );

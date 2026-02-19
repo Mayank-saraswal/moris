@@ -156,6 +156,55 @@ export const processMessage = inngest.createFunction(
       }
     }
 
+    // Track the LLM's reasoning text and timing
+    const thinkingStartTime = Date.now();
+    const reasoningChunks: string[] = [];
+    const actionLog: string[] = [];
+
+    // Helper to extract text from a TextMessage content
+    const extractText = (content: string | Array<{ type: string; text: string }>): string => {
+      if (typeof content === "string") return content;
+      return content.map((c) => c.text).join("");
+    };
+
+    // Tool labels for human-readable descriptions
+    const toolLabels: Record<string, string> = {
+      listFiles: "Browsing the project structure",
+      readFiles: "Reading file contents",
+      updateFile: "Updating a file",
+      createFiles: "Creating new files",
+      createFolder: "Creating a new folder",
+      renameFile: "Renaming a file",
+      deleteFiles: "Deleting files",
+      scrapeUrls: "Fetching URL content",
+    };
+
+    // Flush current thinking state to Convex
+    const flushThinking = async () => {
+      // Combine reasoning text + action descriptions
+      const parts: string[] = [];
+      if (reasoningChunks.length > 0) {
+        parts.push(reasoningChunks.join("\n\n"));
+      }
+      if (actionLog.length > 0) {
+        parts.push(actionLog.join("\n\n"));
+      }
+      const content = parts.join("\n\n") || "Analyzing your request...";
+      try {
+        await convex.mutation(api.system.setThinkingContent, {
+          internalKey,
+          messageId,
+          content,
+          duration: Date.now() - thinkingStartTime,
+        });
+      } catch {
+        // Don't let thinking event failures break the agent
+      }
+    };
+
+    // Write initial thinking state immediately
+    await flushThinking();
+
     // Create the coding agent with file tools
     const codingAgent = createAgent({
       name: "polaris",
@@ -177,7 +226,47 @@ export const processMessage = inngest.createFunction(
         createDeleteFilesTool({ internalKey }),
         createScrapeUrlsTool(),
       ],
+      lifecycle: {
+        onResponse: async ({ result }) => {
+          // Capture the LLM's text reasoning
+          for (const msg of result.output) {
+            if (msg.type === "text" && msg.role === "assistant") {
+              const text = extractText(msg.content);
+              if (text.trim()) {
+                reasoningChunks.push(text.trim());
+              }
+            }
+            // Log tool calls as readable actions
+            if (msg.type === "tool_call") {
+              for (const tool of msg.tools ?? []) {
+                const label = toolLabels[tool.name] ?? `Running ${tool.name}`;
+                actionLog.push(label);
+              }
+            }
+          }
+
+          // Flush immediately so UI updates in real-time
+          await flushThinking();
+          return result;
+        },
+        onFinish: async ({ result }) => {
+          // Capture any final reasoning text
+          for (const msg of result.output) {
+            if (msg.type === "text" && msg.role === "assistant") {
+              const text = extractText(msg.content);
+              if (text.trim()) {
+                reasoningChunks.push(text.trim());
+              }
+            }
+          }
+
+          // Final flush with complete content
+          await flushThinking();
+          return result;
+        },
+      },
     });
+
 
     // Create network with single agent
     const network = createNetwork({
@@ -202,23 +291,37 @@ export const processMessage = inngest.createFunction(
       }
     });
 
-    // Run the agent
-    const result = await network.run(message);
-
-    // Extract the assistant's text response from the last agent result
-    const lastResult = result.state.results.at(-1);
-    const textMessage = lastResult?.output.find(
-      (m) => m.type === "text" && m.role === "assistant"
-    );
-
+    // Run the agent network at the top level (not inside step.run)
+    // The AUTOMATIC_PARALLEL_INDEXING warning is benign and doesn't affect execution
     let assistantResponse =
       "I processed your request. Let me know if you need anything else!";
 
-    if (textMessage?.type === "text") {
-      assistantResponse =
-        typeof textMessage.content === "string"
-          ? textMessage.content
-          : textMessage.content.map((c) => c.text).join("");
+    try {
+      const result = await network.run(message);
+
+      // Extract the assistant's text response from the last agent result
+      const lastResult = result.state.results.at(-1);
+      const textMessage = lastResult?.output.find(
+        (m) => m.type === "text" && m.role === "assistant"
+      );
+
+      if (textMessage?.type === "text") {
+        assistantResponse =
+          typeof textMessage.content === "string"
+            ? textMessage.content
+            : textMessage.content.map((c) => c.text).join("");
+      }
+    } catch (error) {
+      console.error("Agent network error:", error);
+      const errorMsg = error instanceof Error ? error.message : String(error);
+
+      if (errorMsg.includes("parse JSON") || errorMsg.includes("JSON")) {
+        assistantResponse =
+          "I'm sorry, the selected model returned a malformed response. This can happen with some models when generating code. Please try again, or switch to a different model (e.g. Claude Sonnet 4.5 or GPT-4o) for more reliable results.";
+      } else {
+        assistantResponse =
+          "I encountered an error while processing your request. Please try again or switch to a different model.";
+      }
     }
 
     // Update the assistant message with the response (this also sets status to completed)
@@ -231,5 +334,6 @@ export const processMessage = inngest.createFunction(
     });
 
     return { success: true, messageId, conversationId };
+
   }
 );

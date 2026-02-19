@@ -1,39 +1,16 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { WebContainer } from "@webcontainer/api";
+import type { WebContainer } from "@webcontainer/api";
 
 import {
     buildFileTree,
     getFilePath
 } from "@/features/preview/utils/file-tree";
 import { useFiles } from "@/features/projects/hooks/use-files";
+import { getWebContainer, teardownWebContainer } from "@/lib/webcontainer";
 
 import { api } from "../../../../convex/_generated/api";
 import { Id } from "../../../../convex/_generated/dataModel";
 
-// Singleton WebContainer instance
-let webcontainerInstance: WebContainer | null = null;
-let bootPromise: Promise<WebContainer> | null = null;
-
-const getWebContainer = async (): Promise<WebContainer> => {
-    if (webcontainerInstance) {
-        return webcontainerInstance;
-    }
-
-    if (!bootPromise) {
-        bootPromise = WebContainer.boot({ coep: "credentialless" });
-    }
-
-    webcontainerInstance = await bootPromise;
-    return webcontainerInstance;
-};
-
-const teardownWebContainer = () => {
-    if (webcontainerInstance) {
-        webcontainerInstance.teardown();
-        webcontainerInstance = null;
-    }
-    bootPromise = null;
-};
 
 interface UseWebContainerProps {
     projectId: Id<"projects">;

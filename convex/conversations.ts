@@ -73,10 +73,10 @@ export const getByProject = query({
             throw new Error("Unauthorized to accesss this project");
         }
         return await ctx.db
-        .query("conversations")
-        .withIndex("by_project", (q) => q.eq(("projectId"), args.projectId))
-        .order("desc")
-        .collect();
+            .query("conversations")
+            .withIndex("by_project", (q) => q.eq(("projectId"), args.projectId))
+            .order("desc")
+            .take(20);
     },
 });
 
@@ -103,9 +103,10 @@ export const getMessages = query({
             throw new Error("Unauthorized to accesss this project");
         }
         return await ctx.db
-        .query("messages")
-        .withIndex("by_conversation", (q) => q.eq(("conversationId"), args.conversationId))
-        .order("asc")
-        .collect();
+            .query("messages")
+            .withIndex("by_conversation", (q) => q.eq(("conversationId"), args.conversationId))
+            .order("asc")
+            .collect()
+            .then((msgs) => msgs.slice(-50));
     },
 });
