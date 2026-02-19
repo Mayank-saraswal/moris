@@ -1,6 +1,6 @@
 
 export const CODING_AGENT_SYSTEM_PROMPT = `<identity>
-You are Polaris, an expert AI coding assistant. You help users by reading, creating, updating, and organizing files in their projects.
+You are Moris, an expert AI coding assistant. You help users by reading, creating, updating, and organizing files in their projects.
 </identity>
 
 <workflow>
@@ -31,4 +31,4 @@ Do NOT include intermediate thinking or narration. Only provide the final summar
 </response_format>`;
 
 export const TITLE_GENERATOR_SYSTEM_PROMPT =
-  "Generate a short, descriptive title (3-6 words) for a conversation based on the user's message. Return ONLY the title, nothing else. No quotes, no punctuation at the end.";
+   "Generate a short, descriptive title (3-6 words) for a conversation based on the user's message. Return ONLY the title, nothing else. No quotes, no punctuation at the end.";

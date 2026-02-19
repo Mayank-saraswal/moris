@@ -4,12 +4,13 @@ import { useProject } from "../hooks/use-projects";
 import { Id } from "../../../../convex/_generated/dataModel";
 import { cn } from "@/lib/utils";
 import { useState } from "react";
-import { FaGithub } from "react-icons/fa";
 import { Allotment } from "allotment";
 import { FileExplorer } from "./file-explorer";
 import { EditorView } from "@/features/editor/components/editor-view";
 import { PreviewView } from "./preview-view";
 import { ExportPopover } from "./export-popover";
+import { TerminalPanel } from "@/features/terminal/components/terminal-panel";
+import { TerminalSquareIcon } from "lucide-react";
 
 
 
@@ -23,19 +24,19 @@ const Tab = ({
     label,
     isActive,
     onClick,
-    
-}:{
-    label:string;
-    isActive:boolean;
-    onClick:()=>void;
-    
-})=>{
-    return(
+
+}: {
+    label: string;
+    isActive: boolean;
+    onClick: () => void;
+
+}) => {
+    return (
         <div onClick={onClick}
-        className={cn(
-            "flex items-center gap-2 h-full px-3 cursor-pointer text-muted-foreground border-r hover:bg-accent/30",
-            isActive && "bg-background text-foreground"
-        )}
+            className={cn(
+                "flex items-center gap-2 h-full px-3 cursor-pointer text-muted-foreground border-r hover:bg-accent/30",
+                isActive && "bg-background text-foreground"
+            )}
         >
             <span className="text-sm">{label}</span>
         </div>
@@ -45,41 +46,61 @@ const Tab = ({
 export const ProjectIdView = ({ projectId }: { projectId: Id<"projects"> }) => {
 
     const [activeView, setActiveView] = useState<"editor" | "preview">("editor");
+    const [showTerminal, setShowTerminal] = useState(false);
     const project = useProject(projectId);
     return (
         <div className="h-full flex flex-col">
             <nav className="h-8.75 flex items-center bg-sidebar border-b">
-                <Tab label="Code" isActive={activeView === "editor"} onClick={()=>setActiveView("editor")}/>
-                <Tab label="Preview" isActive={activeView === "preview"} onClick={()=>setActiveView("preview")}/>
-                
+                <Tab label="Code" isActive={activeView === "editor"} onClick={() => setActiveView("editor")} />
+                <Tab label="Preview" isActive={activeView === "preview"} onClick={() => setActiveView("preview")} />
+
                 <div className="flex-1 flex justify-end h-full">
-                   <ExportPopover projectId={projectId}/>
+                    <button
+                        onClick={() => setShowTerminal((v) => !v)}
+                        className={cn(
+                            "flex items-center justify-center h-full px-3 text-muted-foreground hover:text-foreground hover:bg-accent/30 transition-colors cursor-pointer",
+                            showTerminal && "text-foreground bg-accent/20"
+                        )}
+                        title="Toggle Terminal"
+                    >
+                        <TerminalSquareIcon className="size-4" />
+                    </button>
+                    <ExportPopover projectId={projectId} />
 
                 </div>
             </nav>
             <div className="flex-1 relative">
-            <div className={cn("absolute inset-0", activeView === "editor" ? "visible" : "invisible")}>
-                <Allotment  defaultSizes={[DEFAULT_SIDEBAR_WIDTH , DEFAULT_MAIN_SIZE]}>
-                    <Allotment.Pane 
-                    minSize={MIN_SIDEBAR_WIDTH} 
-                    maxSize={MAX_SIDEBAR_WIDTH} 
-                    snap
-                    preferredSize={DEFAULT_SIDEBAR_WIDTH}
-                    >
-                        <FileExplorer projectId={projectId}/>
-                    </Allotment.Pane>
-                    <Allotment.Pane minSize={MIN_SIDEBAR_WIDTH} maxSize={MAX_SIDEBAR_WIDTH}>
-                        <EditorView projectId={projectId}/>
-                    </Allotment.Pane>
+                <div className={cn("absolute inset-0", activeView === "editor" ? "visible" : "invisible")}>
+                    <Allotment defaultSizes={[DEFAULT_SIDEBAR_WIDTH, DEFAULT_MAIN_SIZE]}>
+                        <Allotment.Pane
+                            minSize={MIN_SIDEBAR_WIDTH}
+                            maxSize={MAX_SIDEBAR_WIDTH}
+                            snap
+                            preferredSize={DEFAULT_SIDEBAR_WIDTH}
+                        >
+                            <FileExplorer projectId={projectId} />
+                        </Allotment.Pane>
+                        <Allotment.Pane minSize={MIN_SIDEBAR_WIDTH} maxSize={MAX_SIDEBAR_WIDTH}>
+                            <Allotment vertical>
+                                <Allotment.Pane>
+                                    <EditorView projectId={projectId} />
+                                </Allotment.Pane>
+                                {showTerminal && (
+                                    <Allotment.Pane minSize={100} maxSize={500} preferredSize={200}>
+                                        <TerminalPanel />
+                                    </Allotment.Pane>
+                                )}
+                            </Allotment>
+                        </Allotment.Pane>
 
-                </Allotment>
+                    </Allotment>
 
-            </div>
+                </div>
 
-            <div className={cn("absolute inset-0", activeView === "preview" ? "visible" : "invisible")}>
-               <PreviewView projectId={projectId} />
+                <div className={cn("absolute inset-0", activeView === "preview" ? "visible" : "invisible")}>
+                    <PreviewView projectId={projectId} />
 
-            </div>
+                </div>
             </div>
         </div>
     );

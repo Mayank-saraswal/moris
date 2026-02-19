@@ -96,6 +96,72 @@ export const updateMessageStatus = mutation({
   },
 });
 
+export const appendThinkingEvent = mutation({
+  args: {
+    internalKey: v.string(),
+    messageId: v.id("messages"),
+    event: v.object({
+      type: v.union(
+        v.literal("thinking"),
+        v.literal("tool_call"),
+        v.literal("tool_result"),
+        v.literal("error"),
+      ),
+      message: v.string(),
+      toolName: v.optional(v.string()),
+      timestamp: v.number(),
+    }),
+  },
+  handler: async (ctx, args) => {
+    validateInternalKey(args.internalKey);
+
+    const msg = await ctx.db.get(args.messageId);
+    if (!msg) return;
+
+    const events = msg.thinkingEvents ?? [];
+    events.push(args.event);
+    await ctx.db.patch(args.messageId, { thinkingEvents: events });
+  },
+});
+
+export const setThinkingEvents = mutation({
+  args: {
+    internalKey: v.string(),
+    messageId: v.id("messages"),
+    events: v.array(v.object({
+      type: v.union(
+        v.literal("thinking"),
+        v.literal("tool_call"),
+        v.literal("tool_result"),
+        v.literal("error"),
+      ),
+      message: v.string(),
+      toolName: v.optional(v.string()),
+      timestamp: v.number(),
+    })),
+  },
+  handler: async (ctx, args) => {
+    validateInternalKey(args.internalKey);
+    await ctx.db.patch(args.messageId, { thinkingEvents: args.events });
+  },
+});
+
+export const setThinkingContent = mutation({
+  args: {
+    internalKey: v.string(),
+    messageId: v.id("messages"),
+    content: v.string(),
+    duration: v.number(),
+  },
+  handler: async (ctx, args) => {
+    validateInternalKey(args.internalKey);
+    await ctx.db.patch(args.messageId, {
+      thinkingContent: args.content,
+      thinkingDuration: args.duration,
+    });
+  },
+});
+
 export const getProcessingMessages = query({
   args: {
     internalKey: v.string(),

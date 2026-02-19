@@ -45,7 +45,19 @@ export default defineSchema({
         role: v.union(v.literal("user"), v.literal("assistant")),
         content: v.string(),
         status: v.optional(v.union(v.literal("processing"), v.literal("completed"), v.literal("cancelled"))),
-
+        thinkingEvents: v.optional(v.array(v.object({
+            type: v.union(
+                v.literal("thinking"),
+                v.literal("tool_call"),
+                v.literal("tool_result"),
+                v.literal("error"),
+            ),
+            message: v.string(),
+            toolName: v.optional(v.string()),
+            timestamp: v.number(),
+        }))),
+        thinkingContent: v.optional(v.string()),
+        thinkingDuration: v.optional(v.number()),
     }).index("by_conversation", ["conversationId"])
         .index("by_project_status", ["projectId", "status"])
 
