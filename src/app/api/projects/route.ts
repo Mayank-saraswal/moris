@@ -14,7 +14,7 @@ export async function GET(request: Request) {
 
     const url = new URL(request.url);
     const limit = url.searchParams.get("limit");
-    const parsedLimit = limit ? Math.max(1, Math.min(100, parseInt(limit) || 10)) : undefined;
+    const parsedLimit = limit ? Math.max(1, Math.min(100, Number.isNaN(parseInt(limit)) ? 10 : parseInt(limit))) : undefined;
 
     const projects = await prisma.project.findMany({
         where: { userId },
