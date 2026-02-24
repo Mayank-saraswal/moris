@@ -89,8 +89,8 @@ export async function DELETE(_request: Request, { params }: Params) {
     if (file.blobPath) {
         try {
             await deleteFileBlob(file.projectId, file.id);
-        } catch {
-            // Continue even if blob delete fails
+        } catch (error) {
+            console.error(`Failed to delete blob for file ${fileId}:`, error);
         }
     }
 

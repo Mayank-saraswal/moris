@@ -1,3 +1,4 @@
+import crypto from "crypto";
 import Razorpay from "razorpay";
 
 let razorpayInstance: Razorpay | null = null;
@@ -44,17 +45,22 @@ export const PRICING = {
 };
 
 /**
- * Verify Razorpay webhook signature
+ * Verify Razorpay webhook signature using timing-safe comparison
  */
 export function verifyWebhookSignature(
     body: string,
     signature: string,
     secret: string
 ): boolean {
-    const crypto = require("crypto");
     const expectedSignature = crypto
         .createHmac("sha256", secret)
         .update(body)
         .digest("hex");
-    return expectedSignature === signature;
+    if (expectedSignature.length !== signature.length) {
+        return false;
+    }
+    return crypto.timingSafeEqual(
+        Buffer.from(expectedSignature),
+        Buffer.from(signature)
+    );
 }

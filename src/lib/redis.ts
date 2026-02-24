@@ -32,12 +32,29 @@ export function createRateLimiter(
     });
 }
 
-// Pre-configured rate limiters for different endpoints
+// Pre-configured rate limiters for different endpoints (cached instances)
+let _messagesLimiter: Ratelimit | null = null;
+let _suggestionsLimiter: Ratelimit | null = null;
+let _quickEditLimiter: Ratelimit | null = null;
+let _billingLimiter: Ratelimit | null = null;
+
 export const rateLimiters = {
-    messages: () => createRateLimiter(15, 60), // 15 messages/min
-    suggestions: () => createRateLimiter(60, 60), // 60 suggestions/min
-    quickEdit: () => createRateLimiter(20, 60), // 20 edits/min
-    billing: () => createRateLimiter(5, 60), // 5 billing actions/min
+    messages: () => {
+        if (!_messagesLimiter) _messagesLimiter = createRateLimiter(15, 60);
+        return _messagesLimiter;
+    },
+    suggestions: () => {
+        if (!_suggestionsLimiter) _suggestionsLimiter = createRateLimiter(60, 60);
+        return _suggestionsLimiter;
+    },
+    quickEdit: () => {
+        if (!_quickEditLimiter) _quickEditLimiter = createRateLimiter(20, 60);
+        return _quickEditLimiter;
+    },
+    billing: () => {
+        if (!_billingLimiter) _billingLimiter = createRateLimiter(5, 60);
+        return _billingLimiter;
+    },
 };
 
 // Cache helpers

@@ -21,15 +21,19 @@ const MODEL_MULTIPLIERS: Record<string, number> = {
 
     // Base rate models (~$1/M input)
     "anthropic/claude-3.5-haiku": 1,
+    "anthropic/claude-haiku-4.5": 1,
 
     // Premium models ($2-5/M input)
     "openai/gpt-4o": 3,
     "anthropic/claude-sonnet-4": 3.5,
     "anthropic/claude-sonnet-4.5": 4,
     "google/gemini-2.5-pro-preview": 3,
+    "openrouter/quasar-alpha": 3,
+    "openai/o3-mini": 3,
 
     // Ultra models ($15+/M input)
     "anthropic/claude-opus-4": 15,
+    "anthropic/claude-opus-4.6": 15,
 };
 
 /**
