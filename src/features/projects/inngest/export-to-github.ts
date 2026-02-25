@@ -1,6 +1,7 @@
 import ky from "ky";
 import { Octokit } from "octokit";
 import { NonRetriableError } from "inngest";
+import { clerkClient } from "@clerk/nextjs/server";
 
 import { convex } from "@/lib/convex-client";
 import { inngest } from "@/inngest/client";
@@ -13,7 +14,7 @@ interface ExportToGithubEvent {
     repoName: string;
     visibility: "public" | "private";
     description?: string;
-    githubToken: string;
+    userId: string;
 };
 
 type FileWithUrl = Doc<"files"> & {
@@ -53,13 +54,24 @@ export const exportToGithub = inngest.createFunction(
             repoName,
             visibility,
             description,
-            githubToken,
+            userId,
         } = event.data as ExportToGithubEvent;
 
         const internalKey = process.env.MORIS_CONVEX_INTERNAL_KEY;
         if (!internalKey) {
             throw new NonRetriableError("MORIS_CONVEX_INTERNAL_KEY is not configured");
         };
+
+        // Look up GitHub token server-side via Clerk (instead of receiving it from event data)
+        const githubToken = await step.run("get-github-token", async () => {
+            const client = await clerkClient();
+            const tokens = await client.users.getUserOauthAccessToken(userId, "github");
+            const token = tokens.data[0]?.token;
+            if (!token) {
+                throw new NonRetriableError("GitHub not connected. Please reconnect your GitHub account.");
+            }
+            return token;
+        });
 
         // Set status to exporting
         await step.run("set-exporting-status", async () => {
@@ -159,9 +171,14 @@ export const exportToGithub = inngest.createFunction(
                 let content: string;
                 let encoding: "utf-8" | "base64" = "utf-8";
 
-                if (file.content !== undefined) {
-                    // Text file
-                    content = file.content;
+                if (file.blobPath) {
+                    // Text file — download content from Azure Blob
+                    const { downloadBlob } = await import("@/lib/azure-blob");
+                    const blobContent = await downloadBlob(file.blobPath);
+                    if (blobContent === null) {
+                        continue; // Skip files with no blob content
+                    }
+                    content = blobContent;
                 } else if (file.storageUrl) {
                     // Binary file - fetch and base64 encode
                     const response = await ky.get(file.storageUrl);

@@ -21,72 +21,74 @@ function parseGitHubUrl(url: string) {
 }
 
 export async function POST(request: Request) {
-    const { userId, has } = await auth();
-    const hasPro = has({ plan: "pro" });
-
-    if (!hasPro) {
-        return NextResponse.json({ error: "Pro plan required" }, { status: 403 });
-    }
-
-    if (!userId) {
-        return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
-
-    const body = await request.json();
-    const { url } = requestSchema.parse(body);
-
-    let result;
     try {
-        result = parseGitHubUrl(url);
-    } catch (e) {
-        return NextResponse.json({ error: "Invalid GitHub URL" }, { status: 400 });
-    }
-    const { owner, repo } = result;
-    // https://github.com/AntonioErdeljac/cursor-dev
-    // { owner: "AntonioErdeljac", repo: "cursor-dev" }
+        const { userId } = await auth();
 
-    const client = await clerkClient();
-    const tokens = await client.users.getUserOauthAccessToken(
-        userId,
-        "github"
-    );
-    const githubToken = tokens.data[0]?.token;
+        if (!userId) {
+            return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+        }
 
-    if (!githubToken) {
-        return NextResponse.json(
-            { error: "GitHub not connected. Please reconnect your GitHub account." },
-            { status: 400 }
+        const body = await request.json();
+        const { url } = requestSchema.parse(body);
+
+        let result;
+        try {
+            result = parseGitHubUrl(url);
+        } catch (e) {
+            return NextResponse.json({ error: "Invalid GitHub URL" }, { status: 400 });
+        }
+        const { owner, repo } = result;
+
+        const client = await clerkClient();
+        const tokens = await client.users.getUserOauthAccessToken(
+            userId,
+            "github"
         );
-    }
+        const githubToken = tokens.data[0]?.token;
 
-    const internalKey = process.env.MORIS_CONVEX_INTERNAL_KEY;
+        if (!githubToken) {
+            return NextResponse.json(
+                { error: "GitHub not connected. Please reconnect your GitHub account." },
+                { status: 400 }
+            );
+        }
 
-    if (!internalKey) {
+        const internalKey = process.env.MORIS_CONVEX_INTERNAL_KEY;
+
+        if (!internalKey) {
+            return NextResponse.json(
+                { error: "Server configuration error" },
+                { status: 500 }
+            );
+        }
+
+        const projectId = await convex.mutation(api.system.createProject, {
+            internalKey,
+            name: repo,
+            ownerId: userId,
+        });
+
+        const event = await inngest.send({
+            name: "github/import.repo",
+            data: {
+                owner,
+                repo,
+                projectId,
+                githubToken,
+            },
+        });
+
+        return NextResponse.json({
+            success: true,
+            projectId,
+            eventId: event.ids[0]
+        });
+    } catch (error) {
+        console.error("[github/import] Error:", error);
+        const message = error instanceof Error ? error.message : "Unknown error";
         return NextResponse.json(
-            { error: "Server configuration error" },
+            { error: `Failed to import repository: ${message}` },
             { status: 500 }
         );
     }
-
-    const projectId = await convex.mutation(api.system.createProject, {
-        internalKey,
-        name: repo,
-        ownerId: userId,
-    });
-
-    const event = await inngest.send({
-        name: "github/import.repo",
-        data: {
-            owner,
-            repo,
-            projectId,
-            githubToken,
-        },
-    });
-
-    return NextResponse.json({
-        success: true,
-        projectId,
-        eventId: event.ids[0]
-    });
 };

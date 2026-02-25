@@ -2,6 +2,7 @@ import { z } from "zod";
 import { createTool } from "@inngest/agent-kit";
 
 import { convex } from "@/lib/convex-client";
+import { downloadBlob } from "@/lib/azure-blob";
 
 import { api } from "../../../../../convex/_generated/api";
 import { Id } from "../../../../../convex/_generated/dataModel";
@@ -41,12 +42,15 @@ export const createReadFilesTool = ({ internalKey }: ReadFilesToolOptions) => {
               fileId: fileId as Id<"files">,
             });
 
-            if (file && file.content) {
-              results.push({
-                id: file._id,
-                name: file.name,
-                content: file.content,
-              });
+            if (file && file.blobPath) {
+              const content = await downloadBlob(file.blobPath);
+              if (content !== null) {
+                results.push({
+                  id: file._id,
+                  name: file.name,
+                  content,
+                });
+              }
             };
           }
 

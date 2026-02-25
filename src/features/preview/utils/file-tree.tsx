@@ -5,13 +5,21 @@ import { Doc, Id } from "../../../../convex/_generated/dataModel";
 type FileDoc = Doc<"files">;
 
 /**
- * Convert flat Convex files to nested FileSystemTree for WebContainer
+ * File with content resolved from Azure Blob
  */
-export const buildFileTree = (files: FileDoc[]): FileSystemTree => {
+export type FileWithContent = FileDoc & {
+    resolvedContent?: string;
+};
+
+/**
+ * Convert flat Convex files to nested FileSystemTree for WebContainer.
+ * Uses `resolvedContent` (pre-fetched from Azure Blob) instead of inline `content`.
+ */
+export const buildFileTree = (files: FileWithContent[]): FileSystemTree => {
     const tree: FileSystemTree = {};
     const filesMap = new Map(files.map((f) => [f._id, f]));
 
-    const getPath = (file: FileDoc): string[] => {
+    const getPath = (file: FileWithContent): string[] => {
         const parts: string[] = [file.name];
         let parentId = file.parentId;
 
@@ -38,8 +46,8 @@ export const buildFileTree = (files: FileDoc[]): FileSystemTree => {
                     if (!current[part]) {
                         current[part] = { directory: {} };
                     }
-                } else if (!file.storageId && file.content !== undefined) {
-                    current[part] = { file: { contents: file.content } };
+                } else if (!file.storageId && file.resolvedContent !== undefined) {
+                    current[part] = { file: { contents: file.resolvedContent } };
                 }
             } else {
                 if (!current[part]) {

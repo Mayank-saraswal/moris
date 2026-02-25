@@ -2,6 +2,7 @@ import { z } from "zod";
 import { createTool } from "@inngest/agent-kit";
 
 import { convex } from "@/lib/convex-client";
+import { uploadBlob, buildBlobPath } from "@/lib/azure-blob";
 
 import { api } from "../../../../../convex/_generated/api";
 import { Id } from "../../../../../convex/_generated/dataModel";
@@ -50,10 +51,15 @@ export const createUpdateFileTool = ({
 
       try {
         return await toolStep?.run("update-file", async () => {
+          // Upload content to Azure Blob
+          const blobPath = file.blobPath || buildBlobPath(file.projectId, `${fileId}/${file.name}`);
+          await uploadBlob(blobPath, content);
+
+          // Update the blobPath reference in Convex
           await convex.mutation(api.system.updateFile, {
             internalKey,
             fileId: fileId as Id<"files">,
-            content,
+            blobPath,
           });
 
           return `File "${file.name}" updated successfully`;

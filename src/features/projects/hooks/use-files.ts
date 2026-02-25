@@ -14,19 +14,19 @@ const sortFiles = <T extends { type: "file" | "folder"; name: string }>(
 };
 
 export const useFiles = (projectId: Id<"projects"> | null) => {
-    return useQuery(api.files.getFiles, projectId ? { projectId } : "skip");
+  return useQuery(api.files.getFiles, projectId ? { projectId } : "skip");
 };
 
 export const useFile = (fileId: Id<"files"> | null) => {
-    return useQuery(api.files.getFile, fileId ? { id: fileId } : "skip");
+  return useQuery(api.files.getFile, fileId ? { id: fileId } : "skip");
 }
 
 export const useFilePath = (fileId: Id<"files"> | null) => {
-    return useQuery(api.files.getFilePath, fileId ? { id: fileId } : "skip");
+  return useQuery(api.files.getFilePath, fileId ? { id: fileId } : "skip");
 }
 
 export const useCreateFile = () => {
-     return useMutation(api.files.createFile).withOptimisticUpdate(
+  return useMutation(api.files.createFile).withOptimisticUpdate(
     (localStore, args) => {
       const existingFiles = localStore.getQuery(api.files.getFolderContents, {
         projectId: args.projectId,
@@ -42,7 +42,7 @@ export const useCreateFile = () => {
           projectId: args.projectId,
           parentId: args.parentId,
           name: args.name,
-          content: args.content,
+          blobPath: args.blobPath,
           type: "file" as const,
           updatedAt: now,
         };
@@ -60,13 +60,13 @@ export const useCreateFile = () => {
 
 
 export const useUpdateFile = () => {
-    return useMutation(api.files.updateFile);
+  return useMutation(api.files.updateFile);
 
 };
 
 
 export const useCreateFolder = () => {
-   return useMutation(api.files.createFolder).withOptimisticUpdate(
+  return useMutation(api.files.createFolder).withOptimisticUpdate(
     (localStore, args) => {
       const existingFiles = localStore.getQuery(api.files.getFolderContents, {
         projectId: args.projectId,
@@ -98,7 +98,7 @@ export const useCreateFolder = () => {
 
 
 
-    export const useRenameFile = ({
+export const useRenameFile = ({
   projectId,
   parentId,
 }: {
@@ -156,18 +156,18 @@ export const useDeleteFile = ({
 
 
 export const useFolderContents = ({
-    projectId,
-    parentId,
-    enabled = true,
+  projectId,
+  parentId,
+  enabled = true,
 }: {
-    projectId: Id<"projects">;
-    parentId?: Id<"files">;
-    enabled?: boolean;
+  projectId: Id<"projects">;
+  parentId?: Id<"files">;
+  enabled?: boolean;
 }) => {
-    return useQuery(
-        api.files.getFolderContents,
-        enabled ? { projectId, parentId } : "skip",
+  return useQuery(
+    api.files.getFolderContents,
+    enabled ? { projectId, parentId } : "skip",
 
-    )
+  )
 }
 

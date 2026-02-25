@@ -2,6 +2,7 @@ import { z } from "zod";
 import { createTool } from "@inngest/agent-kit";
 
 import { convex } from "@/lib/convex-client";
+import { uploadBlob, buildBlobPath } from "@/lib/azure-blob";
 
 import { api } from "../../../../../convex/_generated/api";
 import { Id } from "../../../../../convex/_generated/dataModel";
@@ -76,11 +77,20 @@ export const createCreateFilesTool = ({
             }
           }
 
+          // Upload all file contents to Azure Blob first
+          const filesWithBlobPaths = await Promise.all(
+            files.map(async (file) => {
+              const blobPath = buildBlobPath(projectId, `${parentId || "root"}/${file.name}`);
+              await uploadBlob(blobPath, file.content);
+              return { name: file.name, blobPath };
+            })
+          );
+
           const results = await convex.mutation(api.system.createFiles, {
             internalKey,
             projectId,
             parentId: resolvedParentId,
-            files,
+            files: filesWithBlobPaths,
           });
 
           const created = results.filter((r) => !r.error);
