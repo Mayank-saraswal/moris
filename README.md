@@ -2,7 +2,8 @@
 
 **Moris** is an advanced AI-powered full-stack coding assistant that helps you build, debug, and deploy applications directly from your browser. It combines a powerful chat interface with a live coding environment, real-time preview, and instant deployment capabilities.
 
-![Moris Screenshot](/public/screenshot.png) *(Add a screenshot here)*
+![Moris Screenshot](/public/screenshot.png) 
+
 
 ## 🚀 Features
 
