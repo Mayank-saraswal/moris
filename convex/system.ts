@@ -191,16 +191,18 @@ export const getRecentMessages = query({
   handler: async (ctx, args) => {
     validateInternalKey(args.internalKey);
 
+    const rawLimit = args.limit !== undefined ? Number(args.limit) : 10;
+    const limit = Number.isNaN(rawLimit) ? 10 : Math.max(1, Math.min(100, Math.floor(rawLimit)));
+
     const messages = await ctx.db
       .query("messages")
       .withIndex("by_conversation", (q) =>
         q.eq("conversationId", args.conversationId)
       )
-      .order("asc")
-      .collect();
+      .order("desc")
+      .take(limit);
 
-    const limit = args.limit ?? 10;
-    return messages.slice(-limit);
+    return messages.reverse();
   },
 });
 
@@ -255,7 +257,7 @@ export const updateFile = mutation({
   args: {
     internalKey: v.string(),
     fileId: v.id("files"),
-    content: v.string(),
+    blobPath: v.string(),
   },
   handler: async (ctx, args) => {
     validateInternalKey(args.internalKey);
@@ -267,7 +269,7 @@ export const updateFile = mutation({
     }
 
     await ctx.db.patch(args.fileId, {
-      content: args.content,
+      blobPath: args.blobPath,
       updatedAt: Date.now(),
     });
 
@@ -281,7 +283,7 @@ export const createFile = mutation({
     internalKey: v.string(),
     projectId: v.id("projects"),
     name: v.string(),
-    content: v.string(),
+    blobPath: v.string(),
     parentId: v.optional(v.id("files")),
   },
   handler: async (ctx, args) => {
@@ -305,7 +307,7 @@ export const createFile = mutation({
     const fileId = await ctx.db.insert("files", {
       projectId: args.projectId,
       name: args.name,
-      content: args.content,
+      blobPath: args.blobPath,
       type: "file",
       parentId: args.parentId,
       updatedAt: Date.now(),
@@ -324,7 +326,7 @@ export const createFiles = mutation({
     files: v.array(
       v.object({
         name: v.string(),
-        content: v.string(),
+        blobPath: v.string(),
       })
     ),
   },
@@ -357,7 +359,7 @@ export const createFiles = mutation({
       const fileId = await ctx.db.insert("files", {
         projectId: args.projectId,
         name: file.name,
-        content: file.content,
+        blobPath: file.blobPath,
         type: "file",
         parentId: args.parentId,
         updatedAt: Date.now(),
@@ -650,6 +652,18 @@ export const getProjectFilesWithUrls = query({
         return { ...file, storageUrl: null };
       })
     );
+  },
+});
+
+export const getProject = query({
+  args: {
+    internalKey: v.string(),
+    projectId: v.id("projects"),
+  },
+  handler: async (ctx, args) => {
+    validateInternalKey(args.internalKey);
+
+    return await ctx.db.get(args.projectId);
   },
 });
 

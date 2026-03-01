@@ -7,12 +7,12 @@ import { z } from "zod";
 import { firecrawl } from "@/lib/firecrawl";
 import { auth } from "@clerk/nextjs/server";
 
-const quickEditSchema = z.object({
-    editedCode: z
-        .string()
-        .describe("The edited version of the selected code based on the instructions"),
-
-})
+const quickEditRequestSchema = z.object({
+    selectedCode: z.string().min(1, "Selected code is required"),
+    fullCode: z.string().optional().default(""),
+    instruction: z.string().min(1, "Instruction is required"),
+    model: z.string().optional(),
+});
 
 const URL_REGEX = /^https?:\/\/[^\s/$.?#].[^\s]*$/i;
 
@@ -48,13 +48,8 @@ export async function POST(req: Request) {
         if (!userId) {
             return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
         }
-        const { selectedCode, fullCode, instruction, model } = await req.json();
-        if (!selectedCode) {
-            return NextResponse.json({ error: "Selected code is required" }, { status: 400 });
-        }
-        if (!instruction) {
-            return NextResponse.json({ error: "Instruction is required" }, { status: 400 });
-        }
+        const body = await req.json();
+        const { selectedCode, fullCode, instruction, model } = quickEditRequestSchema.parse(body);
 
         const urls: string[] = instruction.match(URL_REGEX) || [];
         let documentationContext = "";
@@ -93,11 +88,17 @@ export async function POST(req: Request) {
             .replace("{instruction}", instruction)
             .replace("{documentation}", documentationContext);
 
+        const quickEditResponseSchema = z.object({
+            editedCode: z
+                .string()
+                .describe("The edited version of the selected code based on the instructions"),
+        });
+
         const { text } = await generateText({
             model: openrouter(model || "anthropic/claude-3.5-haiku"),
             prompt,
             output: Output.object({
-                schema: quickEditSchema,
+                schema: quickEditResponseSchema,
             })
         })
 

@@ -1,4 +1,5 @@
 import { useFile, useUpdateFile } from "@/features/projects/hooks/use-files";
+import { useFileContent, uploadFileContent } from "@/hooks/use-file-content";
 import { Id } from "../../../../convex/_generated/dataModel";
 import { useEditor } from "../hooks/use-editor";
 import { FileBreadcrumbs } from "./file-breadcrumbs";
@@ -6,7 +7,7 @@ import { TopNavigation } from "./top-navigation";
 import Image from "next/image";
 import { CodeEditor } from "./code-editor";
 import { useEffect, useRef, useState } from "react";
-import { AlertTriangleIcon, ChevronDownIcon, SparklesIcon, PencilIcon, BrainIcon } from "lucide-react";
+import { AlertTriangleIcon, ChevronDownIcon, SparklesIcon, PencilIcon, BrainIcon, Loader2Icon } from "lucide-react";
 import { useModelPreferences } from "@/features/editor/contexts/model-context";
 import { SUGGESTION_MODELS, QUICK_EDIT_MODELS } from "@/lib/models";
 import { Button } from "@/components/ui/button";
@@ -41,6 +42,11 @@ export const EditorView = ({ projectId }: { projectId: Id<"projects"> }) => {
     const [suggestionSelectorOpen, setSuggestionSelectorOpen] = useState(false);
     const [quickEditSelectorOpen, setQuickEditSelectorOpen] = useState(false);
 
+    // Fetch file content from Azure Blob
+    const { content: fileContent, isLoading: isContentLoading } = useFileContent(
+        activeFile?.blobPath
+    );
+
     const selectedSuggestionOption = SUGGESTION_MODELS.find((m) => m.id === suggestionModel) ?? SUGGESTION_MODELS[0];
     const selectedQuickEditOption = QUICK_EDIT_MODELS.find((m) => m.id === quickEditModel) ?? QUICK_EDIT_MODELS[0];
 
@@ -69,19 +75,30 @@ export const EditorView = ({ projectId }: { projectId: Id<"projects"> }) => {
                     </div>
                 )}
 
-                {isActiveFileText && (
+                {isActiveFileText && isContentLoading && (
+                    <div className="size-full flex items-center justify-center">
+                        <Loader2Icon className="size-5 animate-spin text-muted-foreground" />
+                    </div>
+                )}
+
+                {isActiveFileText && !isContentLoading && (
                     <CodeEditor
                         key={activeFile._id}
-                        initialValue={activeFile.content}
+                        initialValue={fileContent ?? ""}
                         onChange={(content: string) => {
                             if (timeoutRef.current) {
                                 clearTimeout(timeoutRef.current);
                             }
-                            timeoutRef.current = setTimeout(() => {
-                                updateFile({
-                                    id: activeFile._id,
-                                    content: content,
-                                })
+                            timeoutRef.current = setTimeout(async () => {
+                                if (activeFile.blobPath) {
+                                    // Upload content to Azure Blob
+                                    await uploadFileContent(activeFile.blobPath, content);
+                                    // Update the timestamp in Convex
+                                    updateFile({
+                                        id: activeFile._id,
+                                        blobPath: activeFile.blobPath,
+                                    });
+                                }
                             }, DEBOUNCE_TIME);
                         }}
                         fileName={activeFile.name} />

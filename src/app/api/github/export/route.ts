@@ -14,12 +14,7 @@ const requestSchema = z.object({
 });
 
 export async function POST(request: Request) {
-    const { userId, has } = await auth();
-    const hasPro = has({ plan: "pro" });
-
-    if (!hasPro) {
-        return NextResponse.json({ error: "Pro plan required" }, { status: 403 });
-    }
+    const { userId } = await auth();
 
     if (!userId) {
         return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
@@ -55,8 +50,7 @@ export async function POST(request: Request) {
             repoName,
             visibility,
             description,
-            githubToken,
-            internalKey,
+            userId,
         },
     });
 

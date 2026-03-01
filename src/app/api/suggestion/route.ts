@@ -4,13 +4,27 @@ import z from "zod";
 import { openrouter } from "@/lib/openrouter";
 import { auth } from "@clerk/nextjs/server";
 
-const suggestionSchema = z.object({
+const suggestionResponseSchema = z.object({
     suggestion: z
         .string()
         .describe(
             "The code is insert at cursor , or empty string if no completion needed"
         )
 })
+
+const suggestionRequestSchema = z.object({
+    fileName: z.string(),
+    code: z.string().min(1),
+    currentLine: z.string(),
+    previousLines: z.string().optional().default(""),
+    nextLines: z.string().optional().default(""),
+    textBeforeCursor: z.string(),
+    textAfterCursor: z.string(),
+    cursor: z.string(),
+    lineNumber: z.number(),
+    model: z.string().optional(),
+});
+
 const SUGGESTION_PROMPT = `You are a code suggestion assistant.
 
 <context>
@@ -49,6 +63,8 @@ export async function POST(request: Request) {
         if (!userId) {
             return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
         }
+
+        const body = await request.json();
         const {
             fileName,
             code,
@@ -59,10 +75,8 @@ export async function POST(request: Request) {
             textAfterCursor,
             cursor,
             lineNumber,
-            model
-
-
-        } = await request.json();
+            model,
+        } = suggestionRequestSchema.parse(body);
         if (!code) {
             return NextResponse.json({ error: "Code is required" }, { status: 400 });
         }
@@ -79,7 +93,7 @@ export async function POST(request: Request) {
 
         const { output } = await generateText({
             model: openrouter(model || "openai/gpt-4o-mini"),
-            output: Output.object({ schema: suggestionSchema }),
+            output: Output.object({ schema: suggestionResponseSchema }),
             prompt,
         })
 

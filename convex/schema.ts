@@ -21,7 +21,7 @@ export default defineSchema({
 
     files: defineTable({
         name: v.string(),
-        content: v.optional(v.string()),// text files
+        blobPath: v.optional(v.string()),// Azure Blob path for text file content
         storageId: v.optional(v.id("_storage")), //binary files
         projectId: v.id("projects"),
         parentId: v.optional(v.id("files")),

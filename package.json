@@ -15,6 +15,7 @@
     "@ai-sdk/mistral": "^3.0.20",
     "@ai-sdk/moonshotai": "^2.0.5",
     "@ai-sdk/openai": "^3.0.29",
+    "@azure/storage-blob": "^12.31.0",
     "@clerk/nextjs": "^6.36.9",
     "@clerk/themes": "^2.4.49",
     "@codemirror/lang-angular": "^0.1.4",

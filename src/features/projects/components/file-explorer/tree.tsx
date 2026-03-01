@@ -16,6 +16,7 @@ import { useDeleteFile } from "../../hooks/use-files";
 import { TreeItemWrapper } from "./tree-item-wrapper";
 import { RenameInput } from "./rename-input";
 import { useEditor } from "@/features/editor/hooks/use-editor";
+import { uploadFileContent } from "@/hooks/use-file-content";
 
 
 export const Tree = ({
@@ -30,31 +31,35 @@ export const Tree = ({
     const [isOpen, setIsOpen] = useState(false);
     const [isRenaming, setIsRenaming] = useState(false);
     const [isCreating, setIsCreating] = useState<"file" | "folder" | null>(null);
-    
+
+
 
 
     const renameFile = useRenameFile({
-    projectId,
-    parentId: item.parentId,
-  });
-  const deleteFile = useDeleteFile({
-    projectId,
-    parentId: item.parentId,
-  });
+        projectId,
+        parentId: item.parentId,
+    });
+    const deleteFile = useDeleteFile({
+        projectId,
+        parentId: item.parentId,
+    });
     const createFolder = useCreateFolder();
     const createFile = useCreateFile();
     const folderContents = useFolderContents({ projectId, parentId: item._id, enabled: item.type === "folder" && isOpen });
 
-    const {openFile , closeTab , activeTabId} = useEditor(projectId);
+    const { openFile, closeTab, activeTabId } = useEditor(projectId);
     const filename = item.name;
 
 
-    const handleCreate = (name: string) => {
+    const handleCreate = async (name: string) => {
         setIsCreating(null);
         if (isCreating === "file") {
+            // Upload empty content to Azure Blob and create file with blobPath
+            const blobPath = `projects/${projectId}/${item._id}/${name}`;
+            await uploadFileContent(blobPath, "");
             createFile({
                 projectId,
-                content: "",
+                blobPath,
                 parentId: item._id,
                 name,
             })
@@ -69,7 +74,7 @@ export const Tree = ({
 
     const handleRename = (newName: string) => {
         setIsRenaming(false);
-        if(newName === filename){
+        if (newName === filename) {
             return;
         }
         renameFile({
@@ -87,7 +92,7 @@ export const Tree = ({
     if (item.type === "file") {
         const isActive = activeTabId === item._id;
 
-        if(isRenaming){
+        if (isRenaming) {
             return (
                 <RenameInput
                     type="file"
@@ -104,10 +109,10 @@ export const Tree = ({
                 level={level}
                 isActive={isActive}
                 onClick={() => {
-                    openFile(item._id , {pinned:false});
+                    openFile(item._id, { pinned: false });
                 }}
                 onDoubleClick={() => {
-                    openFile(item._id , {pinned:true});
+                    openFile(item._id, { pinned: true });
                 }}
 
                 onRename={() => {
@@ -145,75 +150,75 @@ export const Tree = ({
         </>
     )
 
-    if(isCreating){
+    if (isCreating) {
         return (
             <>
-            <button
-            onClick={() => setIsOpen((value) => !value)}
+                <button
+                    onClick={() => setIsOpen((value) => !value)}
 
-            className="group flex items-center gap-1 h-5.5 hover:bg-accent/30 w-full"
-            style={{ paddingLeft: getItemPadding(level, false) }}
-            >
-                {folderRender}
+                    className="group flex items-center gap-1 h-5.5 hover:bg-accent/30 w-full"
+                    style={{ paddingLeft: getItemPadding(level, false) }}
+                >
+                    {folderRender}
 
-            </button>
-            {isOpen && (
-                <>
-                {folderContents === undefined && <LoadingRow level={level + 1} />}
-                <CreateInput
-                type={isCreating}
-                level={level+1}
-                onSubmit={handleCreate}
-                onCancel={() => setIsCreating(null)}
-                />
+                </button>
+                {isOpen && (
+                    <>
+                        {folderContents === undefined && <LoadingRow level={level + 1} />}
+                        <CreateInput
+                            type={isCreating}
+                            level={level + 1}
+                            onSubmit={handleCreate}
+                            onCancel={() => setIsCreating(null)}
+                        />
 
-                {folderContents?.map((subitem) => (
-                    <Tree
-                        key={subitem._id}
-                        item={subitem}
-                        level={level + 1}
-                        projectId={projectId}
-                    />
-                ))}
-                </>
-            )}
+                        {folderContents?.map((subitem) => (
+                            <Tree
+                                key={subitem._id}
+                                item={subitem}
+                                level={level + 1}
+                                projectId={projectId}
+                            />
+                        ))}
+                    </>
+                )}
             </>
-            
-            
+
+
         )
     }
 
 
 
-     if(isRenaming){
+    if (isRenaming) {
         return (
             <>
-            <RenameInput
-            type="folder"
-            level={level}
-            defaultValue={folderName}
-            isOpen={isOpen}
-            onSubmit={handleRename}
-            onCancel={() => setIsRenaming(false)}
-            />
-            {isOpen && (
-                <>
-                {folderContents === undefined && <LoadingRow level={level + 1} />}
-                
+                <RenameInput
+                    type="folder"
+                    level={level}
+                    defaultValue={folderName}
+                    isOpen={isOpen}
+                    onSubmit={handleRename}
+                    onCancel={() => setIsRenaming(false)}
+                />
+                {isOpen && (
+                    <>
+                        {folderContents === undefined && <LoadingRow level={level + 1} />}
 
-                {folderContents?.map((subitem) => (
-                    <Tree
-                        key={subitem._id}
-                        item={subitem}
-                        level={level + 1}
-                        projectId={projectId}
-                    />
-                ))}
-                </>
-            )}
+
+                        {folderContents?.map((subitem) => (
+                            <Tree
+                                key={subitem._id}
+                                item={subitem}
+                                level={level + 1}
+                                projectId={projectId}
+                            />
+                        ))}
+                    </>
+                )}
             </>
-            
-            
+
+
         )
     }
 

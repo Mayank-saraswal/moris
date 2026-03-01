@@ -166,11 +166,16 @@ export const importGithubRepo = inngest.createFunction(
                     } else {
                         const content = buffer.toString("utf-8");
 
+                        // Upload text content to Azure Blob Storage
+                        const { uploadBlob, buildBlobPath } = await import("@/lib/azure-blob");
+                        const blobPath = buildBlobPath(projectId, file.path);
+                        await uploadBlob(blobPath, content);
+
                         await convex.mutation(api.system.createFile, {
                             internalKey,
                             projectId,
                             name,
-                            content,
+                            blobPath,
                             parentId,
                         });
                     }

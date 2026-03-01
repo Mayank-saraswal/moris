@@ -5,7 +5,6 @@ import { NextResponse } from "next/server";
 import z from "zod";
 import { api } from "../../../../../convex/_generated/api";
 import { Id } from "../../../../../convex/_generated/dataModel";
-import { getProcessingMessages } from "../../../../../convex/system";
 
 
 const requestSchema = z.object({
@@ -22,7 +21,7 @@ export async function POST(request: Request) {
     const body = await request.json();
     const { projectId } = requestSchema.parse(body);
 
-    const internalKey = process.env.MORIS_CONVEX_INTERNAL_KEY!;
+    const internalKey = process.env.MORIS_CONVEX_INTERNAL_KEY;
     if (!internalKey) {
         return NextResponse.json({ error: "internal key is missing" }, { status: 401 });
     }

@@ -3,7 +3,8 @@ import type { WebContainer } from "@webcontainer/api";
 
 import {
     buildFileTree,
-    getFilePath
+    getFilePath,
+    FileWithContent,
 } from "@/features/preview/utils/file-tree";
 import { useFiles } from "@/features/projects/hooks/use-files";
 import { getWebContainer, teardownWebContainer } from "@/lib/webcontainer";
@@ -20,6 +21,41 @@ interface UseWebContainerProps {
         devCommand?: string;
     };
 };
+
+/**
+ * Fetch file content from Azure Blob for a single file
+ */
+async function fetchBlobContent(blobPath: string): Promise<string | null> {
+    try {
+        const res = await fetch(
+            `/api/files/content?blobPath=${encodeURIComponent(blobPath)}`
+        );
+        if (!res.ok) return null;
+        const data = await res.json();
+        return data.content ?? null;
+    } catch {
+        return null;
+    }
+}
+
+/**
+ * Resolve content for all text files from Azure Blob
+ */
+async function resolveFileContents(
+    files: ReturnType<typeof useFiles>
+): Promise<FileWithContent[]> {
+    if (!files) return [];
+
+    return Promise.all(
+        files.map(async (file) => {
+            if (file.type === "file" && !file.storageId && file.blobPath) {
+                const content = await fetchBlobContent(file.blobPath);
+                return { ...file, resolvedContent: content ?? undefined };
+            }
+            return { ...file } as FileWithContent;
+        })
+    );
+}
 
 export const useWebContainer = ({
     projectId,
@@ -61,7 +97,9 @@ export const useWebContainer = ({
                 const container = await getWebContainer();
                 containerRef.current = container;
 
-                const fileTree = buildFileTree(files);
+                // Resolve file contents from Azure Blob before mounting
+                const filesWithContent = await resolveFileContents(files);
+                const fileTree = buildFileTree(filesWithContent);
                 await container.mount(fileTree);
 
                 container.on("server-ready", (_port, url) => {
@@ -118,7 +156,7 @@ export const useWebContainer = ({
         settings?.installCommand,
     ]);
 
-    // Sync file changes (hot-reload)
+    // Sync file changes (hot-reload) — download content from Azure Blob
     useEffect(() => {
         const container = containerRef.current;
         if (!container || !files || status !== "running") return;
@@ -126,10 +164,16 @@ export const useWebContainer = ({
         const filesMap = new Map(files.map((f) => [f._id, f]));
 
         for (const file of files) {
-            if (file.type !== "file" || file.storageId || !file.content) continue;
+            if (file.type !== "file" || file.storageId || !file.blobPath) continue;
 
             const filePath = getFilePath(file, filesMap);
-            container.fs.writeFile(filePath, file.content);
+
+            // Async fetch content from Azure Blob and write to WebContainer
+            fetchBlobContent(file.blobPath).then((content) => {
+                if (content !== null) {
+                    container.fs.writeFile(filePath, content);
+                }
+            });
         }
     }, [files, status]);
 
