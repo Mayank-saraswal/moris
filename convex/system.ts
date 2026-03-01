@@ -191,7 +191,9 @@ export const getRecentMessages = query({
   handler: async (ctx, args) => {
     validateInternalKey(args.internalKey);
 
-    const limit = args.limit ?? 10;
+    const rawLimit = args.limit !== undefined ? Number(args.limit) : 10;
+    const limit = Number.isNaN(rawLimit) ? 10 : Math.max(1, Math.min(100, Math.floor(rawLimit)));
+
     const messages = await ctx.db
       .query("messages")
       .withIndex("by_conversation", (q) =>
@@ -650,6 +652,18 @@ export const getProjectFilesWithUrls = query({
         return { ...file, storageUrl: null };
       })
     );
+  },
+});
+
+export const getProject = query({
+  args: {
+    internalKey: v.string(),
+    projectId: v.id("projects"),
+  },
+  handler: async (ctx, args) => {
+    validateInternalKey(args.internalKey);
+
+    return await ctx.db.get(args.projectId);
   },
 });
 

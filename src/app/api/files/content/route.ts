@@ -2,6 +2,9 @@ import { auth } from "@clerk/nextjs/server";
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { downloadBlob, uploadBlob } from "@/lib/azure-blob";
+import { convex } from "@/lib/convex-client";
+import { api } from "../../../../../convex/_generated/api";
+import { Id } from "../../../../../convex/_generated/dataModel";
 
 // GET: Download file content from Azure Blob
 // Query: ?blobPath=projects/{projectId}/{filePath}
@@ -25,6 +28,34 @@ export async function GET(request: NextRequest) {
             { error: "Invalid blob path" },
             { status: 400 }
         );
+    }
+
+    const segments = blobPath.split("/");
+    const projectId = segments[1];
+
+    if (!projectId) {
+        return NextResponse.json(
+            { error: "Invalid blob path format" },
+            { status: 400 }
+        );
+    }
+
+    const internalKey = process.env.MORIS_CONVEX_INTERNAL_KEY;
+    if (!internalKey) {
+        return NextResponse.json({ error: "Server configuration error" }, { status: 500 });
+    }
+
+    try {
+        const project = await convex.query(api.system.getProject, {
+            internalKey,
+            projectId: projectId as Id<"projects">,
+        });
+
+        if (!project || project.ownerId !== userId) {
+            return NextResponse.json({ error: "Unauthorized" }, { status: 403 });
+        }
+    } catch (error) {
+        return NextResponse.json({ error: "Unauthorized" }, { status: 403 });
     }
 
     try {
@@ -66,6 +97,34 @@ export async function PUT(request: Request) {
             { error: "Invalid blob path" },
             { status: 400 }
         );
+    }
+
+    const segments = blobPath.split("/");
+    const projectId = segments[1];
+
+    if (!projectId) {
+        return NextResponse.json(
+            { error: "Invalid blob path format" },
+            { status: 400 }
+        );
+    }
+
+    const internalKey = process.env.MORIS_CONVEX_INTERNAL_KEY;
+    if (!internalKey) {
+        return NextResponse.json({ error: "Server configuration error" }, { status: 500 });
+    }
+
+    try {
+        const project = await convex.query(api.system.getProject, {
+            internalKey,
+            projectId: projectId as Id<"projects">,
+        });
+
+        if (!project || project.ownerId !== userId) {
+            return NextResponse.json({ error: "Unauthorized" }, { status: 403 });
+        }
+    } catch (error) {
+        return NextResponse.json({ error: "Unauthorized" }, { status: 403 });
     }
 
     try {

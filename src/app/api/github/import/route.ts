@@ -29,7 +29,16 @@ export async function POST(request: Request) {
         }
 
         const body = await request.json();
-        const { url } = requestSchema.parse(body);
+        let url: string;
+        try {
+            const parsed = requestSchema.parse(body);
+            url = parsed.url;
+        } catch (error) {
+            if (error instanceof z.ZodError) {
+                return NextResponse.json({ error: "Invalid request" }, { status: 400 });
+            }
+            throw error;
+        }
 
         let result;
         try {
