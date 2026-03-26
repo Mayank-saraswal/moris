@@ -1,11 +1,10 @@
 import { useRouter } from "next/navigation";
 
-import {FaGithub} from "react-icons/fa"
-import {AlertCircleIcon , GlobeIcon , Loader2Icon} from "lucide-react"
-import { CommandDialog, CommandInput, CommandList,CommandGroup, CommandItem , CommandEmpty } from "@/components/ui/command";
+import { GlobeIcon } from "lucide-react"
+import { CommandDialog, CommandInput, CommandList, CommandGroup, CommandItem, CommandEmpty } from "@/components/ui/command";
 
 import { useProjects } from "../hooks/use-projects";
-import { Doc } from "../../../../convex/_generated/dataModel";
+
 
 
 interface ProjectsCommandDialogProps {
@@ -14,26 +13,13 @@ interface ProjectsCommandDialogProps {
 };
 
 
-const getProjectIcon = (project: Doc<"projects">) => {
-    if (project.importStatus === "completed") {
-        return <FaGithub className="size-4 text-muted-foreground"/>
-    }
-
-    if (project.importStatus === "failed") {
-        return <AlertCircleIcon className="size-4 text-muted-foreground"/>
-    }
-
-    if (project.importStatus === "importing") {
-        return <Loader2Icon className="size-4 text-muted-foreground animate-spin"/>
-    }
-
-    return <GlobeIcon className="size-4 text-muted-foreground"/>
-    
+const getProjectIcon = () => {
+    return <GlobeIcon className="size-4 text-muted-foreground" />
 }
 
 
-export const ProjectsCommandDialog = ({open , onOpenChange}:ProjectsCommandDialogProps) => {
-    const projects = useProjects()
+export const ProjectsCommandDialog = ({ open, onOpenChange }: ProjectsCommandDialogProps) => {
+    const { data: projects } = useProjects()
     const router = useRouter()
     const handleSelect = (projectId: string) => {
         router.push(`/projects/${projectId}`)
@@ -42,8 +28,8 @@ export const ProjectsCommandDialog = ({open , onOpenChange}:ProjectsCommandDialo
 
     return (
         <CommandDialog open={open} onOpenChange={onOpenChange}
-        title="Search Projects"
-        description="Search and Navigate to your projects"
+            title="Search Projects"
+            description="Search and Navigate to your projects"
         >
             <CommandInput placeholder="Search projects..." />
             <CommandList>
@@ -53,13 +39,13 @@ export const ProjectsCommandDialog = ({open , onOpenChange}:ProjectsCommandDialo
                 <CommandGroup heading="Projects">
                     {projects?.map((project) => (
                         <CommandItem
-                            key={project._id}
-                            value={`${project.name}-${project._id}`}
+                            key={project.id}
+                            value={`${project.name}-${project.id}`}
                             onSelect={() => {
-                                handleSelect(project._id)
+                                handleSelect(project.id)
                             }}
                         >
-                            {getProjectIcon(project)}
+                            {getProjectIcon()}
                             <span>{project.name}</span>
                         </CommandItem>
                     ))}

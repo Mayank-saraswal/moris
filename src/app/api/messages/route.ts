@@ -3,10 +3,9 @@ import { NextResponse } from "next/server";
 import { auth } from "@clerk/nextjs/server";
 
 import { inngest } from "@/inngest/client";
-import { convex } from "@/lib/convex-client";
-
-import { api } from "../../../../convex/_generated/api";
-import { Id } from "../../../../convex/_generated/dataModel";
+import { prisma } from "@/lib/prisma";
+import { checkTokenBalance } from "@/lib/tokens";
+import { rateLimiters } from "@/lib/redis";
 
 const requestSchema = z.object({
   conversationId: z.string(),
@@ -21,22 +20,37 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  const internalKey = process.env.MORIS_CONVEX_INTERNAL_KEY;
-
-  if (!internalKey) {
+  // Rate limiting
+  const limiter = rateLimiters.messages();
+  const { success: withinLimit } = await limiter.limit(userId);
+  if (!withinLimit) {
     return NextResponse.json(
-      { error: "Internal key not configured" },
-      { status: 500 }
+      { error: "Too many requests. Please wait." },
+      { status: 429 }
+    );
+  }
+
+  // Token balance check
+  const { hasTokens, balance, plan } = await checkTokenBalance(userId);
+  if (!hasTokens) {
+    return NextResponse.json(
+      {
+        error: "insufficient_tokens",
+        balance: 0,
+        plan,
+        upgradeUrl: "/pricing",
+      },
+      { status: 402 }
     );
   }
 
   const body = await request.json();
   const { conversationId, message, model } = requestSchema.parse(body);
 
-  // Call convex mutation, query
-  const conversation = await convex.query(api.system.getConversationById, {
-    internalKey,
-    conversationId: conversationId as Id<"conversations">,
+  // Verify conversation exists and belongs to user
+  const conversation = await prisma.conversation.findFirst({
+    where: { id: conversationId, userId },
+    select: { id: true, projectId: true },
   });
 
   if (!conversation) {
@@ -48,67 +62,65 @@ export async function POST(request: Request) {
 
   const projectId = conversation.projectId;
 
-  const processingMessages = await convex.query(api.system.getProcessingMessages, {
-    projectId,
-    internalKey,
+  // Cancel any processing messages
+  const processingMessages = await prisma.message.findMany({
+    where: {
+      conversation: { projectId },
+      status: "processing",
+    },
+    select: { id: true },
   });
 
   if (processingMessages.length > 0) {
     await Promise.all(
-      processingMessages.map(async (msg) => {
+      processingMessages.map(async (msg: { id: string }) => {
         await inngest.send({
           name: "message/cancel",
-          data: {
-            messageId: msg._id,
-            internalKey,
-          },
+          data: { messageId: msg.id },
         });
-        await convex.mutation(api.system.updateMessageStatus, {
-          internalKey,
-          status: "cancelled",
-          messageId: msg._id,
+        await prisma.message.update({
+          where: { id: msg.id },
+          data: { status: "cancelled" },
         });
       })
     );
-
   }
-  // Create user message
-  await convex.mutation(api.system.createMessage, {
-    internalKey,
-    conversationId: conversationId as Id<"conversations">,
-    projectId,
-    role: "user",
 
-    content: message,
+  // Create user message
+  await prisma.message.create({
+    data: {
+      conversationId,
+      role: "user",
+      content: message,
+    },
   });
 
-  // Create assistant message placeholder with processing status 
-  const assistantMessageId = await convex.mutation(
-    api.system.createMessage,
-    {
-      internalKey,
-      conversationId: conversationId as Id<"conversations">,
-      projectId,
+  // Create assistant message placeholder
+  const assistantMessage = await prisma.message.create({
+    data: {
+      conversationId,
       role: "assistant",
       content: "",
       status: "processing",
-    }
-  );
+    },
+  });
 
+  // Trigger Inngest to process the message
   const event = await inngest.send({
     name: "message/sent",
     data: {
-      messageId: assistantMessageId,
+      messageId: assistantMessage.id,
       conversationId,
       projectId,
       message,
       model,
+      userId,
     },
   });
 
   return NextResponse.json({
     success: true,
     eventId: event.ids[0],
-    messageId: assistantMessageId,
+    messageId: assistantMessage.id,
   });
-};
+}

@@ -1,5 +1,5 @@
 import { ScrollArea, ScrollBar } from "@/components/ui/scroll-area";
-import { Id } from "../../../../convex/_generated/dataModel";
+
 import { useEditor } from "../hooks/use-editor";
 import { useFile } from "@/features/projects/hooks/use-files";
 import { cn } from "@/lib/utils";
@@ -14,12 +14,12 @@ const Tab = ({
     isFirst,
     projectId
 }: {
-    fileId: Id<"files">;
+    fileId: string;
     isFirst: boolean;
-    projectId: Id<"projects">;
+    projectId: string;
 }) => {
 
-    const file = useFile(fileId);
+    const { data: file } = useFile(fileId);
     const { activeTabId, setActiveTab, closeTab, openFile, previewTabId } = useEditor(projectId);
 
     const isActive = activeTabId === fileId;
@@ -71,7 +71,7 @@ const Tab = ({
         </div>
     )
 }
-export const TopNavigation = ({ projectId }: { projectId: Id<"projects"> }) => {
+export const TopNavigation = ({ projectId }: { projectId: string }) => {
     const { openTabs } = useEditor(projectId)
 
 

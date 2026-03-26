@@ -9,11 +9,9 @@ import {
 } from "unique-names-generator";
 
 import { DEFAULT_CONVERSATION_TITLE } from "@/features/conversations/constants";
-
 import { inngest } from "@/inngest/client";
-import { convex } from "@/lib/convex-client";
-
-import { api } from "../../../../../convex/_generated/api";
+import { prisma } from "@/lib/prisma";
+import { checkTokenBalance } from "@/lib/tokens";
 
 const requestSchema = z.object({
     prompt: z.string().min(1),
@@ -26,12 +24,12 @@ export async function POST(request: Request) {
         return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    const internalKey = process.env.MORIS_CONVEX_INTERNAL_KEY;
-
-    if (!internalKey) {
+    // Token check
+    const { hasTokens, plan } = await checkTokenBalance(userId);
+    if (!hasTokens) {
         return NextResponse.json(
-            { error: "Internal key not configured" },
-            { status: 500 }
+            { error: "insufficient_tokens", plan, upgradeUrl: "/pricing" },
+            { status: 402 }
         );
     }
 
@@ -45,49 +43,60 @@ export async function POST(request: Request) {
         length: 3,
     });
 
-    // Create project and conversation together
-    const { projectId, conversationId } = await convex.mutation(
-        api.system.createProjectWithConversation,
-        {
-            internalKey,
-            projectName,
-            conversationTitle: DEFAULT_CONVERSATION_TITLE,
-            ownerId: userId,
-        },
-    );
+    // Create project and conversation together in a transaction
+    const result = await prisma.$transaction(async (tx: Parameters<Parameters<typeof prisma.$transaction>[0]>[0]) => {
+        const project = await tx.project.create({
+            data: {
+                userId,
+                name: projectName,
+            },
+        });
 
-    // Create user message
-    await convex.mutation(api.system.createMessage, {
-        internalKey,
-        conversationId,
-        projectId,
-        role: "user",
-        content: prompt,
+        const conversation = await tx.conversation.create({
+            data: {
+                projectId: project.id,
+                userId,
+                title: DEFAULT_CONVERSATION_TITLE,
+            },
+        });
+
+        // Create user message
+        await tx.message.create({
+            data: {
+                conversationId: conversation.id,
+                role: "user",
+                content: prompt,
+            },
+        });
+
+        // Create assistant message placeholder
+        const assistantMessage = await tx.message.create({
+            data: {
+                conversationId: conversation.id,
+                role: "assistant",
+                content: "",
+                status: "processing",
+            },
+        });
+
+        return {
+            projectId: project.id,
+            conversationId: conversation.id,
+            messageId: assistantMessage.id,
+        };
     });
-
-    // Create assistant message placeholder with processing status
-    const assistantMessageId = await convex.mutation(
-        api.system.createMessage,
-        {
-            internalKey,
-            conversationId,
-            projectId,
-            role: "assistant",
-            content: "",
-            status: "processing",
-        },
-    );
 
     // Trigger Inngest to process the message
     await inngest.send({
         name: "message/sent",
         data: {
-            messageId: assistantMessageId,
-            conversationId,
-            projectId,
+            messageId: result.messageId,
+            conversationId: result.conversationId,
+            projectId: result.projectId,
             message: prompt,
+            userId,
         },
     });
 
-    return NextResponse.json({ projectId });
-};
+    return NextResponse.json({ projectId: result.projectId });
+}

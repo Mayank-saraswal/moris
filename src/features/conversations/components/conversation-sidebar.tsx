@@ -1,4 +1,4 @@
-import { Id } from "../../../../convex/_generated/dataModel";
+
 import ky from "ky";
 import { useState } from "react";
 import { CopyIcon, HistoryIcon, PlusIcon, LoaderIcon, Plus, ChevronDownIcon, SparklesIcon, BrainIcon, TerminalSquareIcon } from "lucide-react";
@@ -57,19 +57,19 @@ import { Allotment } from "allotment";
 
 
 interface ConversationSidebarProps {
-    projectId: Id<"projects">;
+    projectId: string;
 }
 
 export const ConversationSidebar = ({ projectId }: ConversationSidebarProps) => {
     const createConversation = useCreateConversation();
-    const [selectedConversationId, setSelectedConversationId] = useState<Id<"conversations"> | null>(null);
+    const [selectedConversationId, setSelectedConversationId] = useState<string | null>(null);
     const [pastConversationsOpen, setPastConversationsOpen] = useState(false);
     const [modelSelectorOpen, setModelSelectorOpen] = useState(false);
     const [showTerminal, setShowTerminal] = useState(false);
     const conversations = useConversations(projectId);
-    const activeConversationId = selectedConversationId ?? conversations?.[0]?._id ?? null;
+    const activeConversationId = selectedConversationId ?? conversations.data?.[0]?.id ?? null;
     const activeConversation = useConversation(activeConversationId);
-    const conversationMessages = useMessages(activeConversationId);
+    const { data: conversationMessages } = useMessages(activeConversationId);
     const isProcessing = conversationMessages?.some((message) => message.status === "processing");
     const { conversationModel, setConversationModel } = useModelPreferences();
 
@@ -90,9 +90,9 @@ export const ConversationSidebar = ({ projectId }: ConversationSidebarProps) => 
     const [isSending, setIsSending] = useState(false);
     const handleCreateConversation = async () => {
         try {
-            const newConversationId = await createConversation({ projectId, title: DEFAULT_CONVERSATION_TITLE });
-            setSelectedConversationId(newConversationId);
-            return newConversationId;
+            const result = await createConversation.mutateAsync({ projectId, title: DEFAULT_CONVERSATION_TITLE });
+            setSelectedConversationId(result.id);
+            return result.id;
         } catch (error) {
 
             toast.error("Failed to create conversation");
@@ -148,7 +148,7 @@ export const ConversationSidebar = ({ projectId }: ConversationSidebarProps) => 
             <div className="flex flex-col h-full bg-background">
                 <div className="h-8.75 flex items-center justify-between border-b">
                     <div className="text-sm truncate pl-3">
-                        {activeConversation?.title ?? DEFAULT_CONVERSATION_TITLE}
+                        {activeConversation.data?.title ?? DEFAULT_CONVERSATION_TITLE}
                     </div>
                     <div className="flex-items-center px- gap-1">
                         <Button
@@ -188,18 +188,18 @@ export const ConversationSidebar = ({ projectId }: ConversationSidebarProps) => 
                                 <ConversationContent>
                                     <div className="text-muted-foreground text-sm">
                                         {conversationMessages?.map((message, messageIndex) => (
-                                            <Message key={message._id}
+                                            <Message key={message.id}
                                                 from={message.role}
                                             >
                                                 <MessageContent>
-                                                    {message.role === "assistant" && message.thinkingContent && (
+                                                    {message.role === "assistant" && message.thinking && (
                                                         <ThinkingEvents
-                                                            content={message.thinkingContent}
-                                                            duration={message.thinkingDuration}
+                                                            content={message.thinking}
+                                                            duration={undefined}
                                                             isProcessing={message.status === "processing"}
                                                         />
                                                     )}
-                                                    {message.role === "assistant" && message.status === "processing" && !message.thinkingContent ? (
+                                                    {message.role === "assistant" && message.status === "processing" && !message.thinking ? (
                                                         <div className="flex items-center gap-2 text-muted-foreground">
                                                             <LoaderIcon className="size-3.5 animate-spin" />
                                                             <p>Thinking...</p>

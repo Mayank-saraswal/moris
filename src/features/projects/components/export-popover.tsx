@@ -32,7 +32,7 @@ import { Textarea } from "@/components/ui/textarea";
 
 import { useProject } from "../hooks/use-projects";
 
-import { Id } from "../../../../convex/_generated/dataModel";
+
 import Link from "next/link";
 
 const formSchema = z.object({
@@ -49,16 +49,13 @@ const formSchema = z.object({
 });
 
 interface ExportPopoverProps {
-    projectId: Id<"projects">;
+    projectId: string;
 }
 
 export const ExportPopover = ({ projectId }: ExportPopoverProps) => {
-    const project = useProject(projectId);
+    const { data: project } = useProject(projectId);
     const [open, setOpen] = React.useState(false);
     const { openUserProfile } = useClerk();
-
-    const exportStatus = project?.exportStatus;
-    const exportRepoUrl = project?.exportRepoUrl;
 
     const form = useForm({
         defaultValues: {
@@ -126,73 +123,6 @@ export const ExportPopover = ({ projectId }: ExportPopoverProps) => {
     };
 
     const renderContent = () => {
-        if (exportStatus === "exporting") {
-            return (
-                <div className="flex flex-col items-center gap-3">
-                    <LoaderIcon className="size-6 animate-spin text-muted-foreground" />
-                    <p className="text-sm text-muted-foreground">
-                        Exporting to GitHub...
-                    </p>
-                    <Button
-                        size="sm"
-                        variant="outline"
-                        className="w-full"
-                        onClick={handleCancelExport}
-                    >
-                        Cancel
-                    </Button>
-                </div>
-            );
-        }
-
-        if (exportStatus === "completed" && exportRepoUrl) {
-            return (
-                <div className="flex flex-col items-center gap-3">
-                    <CheckCircle2Icon className="size-6 text-emerald-500" />
-                    <p className="text-sm font-medium">Repository created</p>
-                    <p className="text-xs text-muted-foreground text-center">
-                        Your project has been exported to GitHub.
-                    </p>
-                    <div className="flex flex-col w-full gap-2">
-                        <Button size="sm" className="w-full" asChild>
-                            <Link href={exportRepoUrl} target="_blank" rel="noopener noreferrer">
-                                <ExternalLinkIcon className="size-4 mr-1" />
-                                View on GitHub
-                            </Link>
-                        </Button>
-                        <Button
-                            size="sm"
-                            variant="outline"
-                            className="w-full"
-                            onClick={handleResetExport}
-                        >
-                            Close
-                        </Button>
-                    </div>
-                </div>
-            )
-        }
-
-        if (exportStatus === "failed") {
-            return (
-                <div className="flex flex-col items-center gap-3">
-                    <XCircleIcon className="size-6 text-rose-500" />
-                    <p className="text-sm font-medium">Unable to export</p>
-                    <p className="text-xs text-muted-foreground text-center">
-                        Something went wrong. Please try again.
-                    </p>
-                    <Button
-                        size="sm"
-                        variant="outline"
-                        className="w-full"
-                        onClick={handleResetExport}
-                    >
-                        Retry
-                    </Button>
-                </div>
-            );
-        }
-
         return (
             <form
                 onSubmit={(e) => {
@@ -305,15 +235,6 @@ export const ExportPopover = ({ projectId }: ExportPopoverProps) => {
     };
 
     const getStatusIcon = () => {
-        if (exportStatus === "exporting") {
-            return <LoaderIcon className="size-3.5 animate-spin" />;
-        }
-        if (exportStatus === "completed") {
-            return <CheckCheckIcon className="size-3.5 text-emerald-500" />;
-        }
-        if (exportStatus === "failed") {
-            return <XCircleIcon className="size-3.5 text-red-500" />;
-        }
         return <FaGithub className="size-3.5" />;
     };
 

@@ -2,10 +2,8 @@ import { z } from "zod";
 import { NextResponse } from "next/server";
 import { auth, clerkClient } from "@clerk/nextjs/server";
 
-import { convex } from "@/lib/convex-client";
+import { prisma } from "@/lib/prisma";
 import { inngest } from "@/inngest/client";
-
-import { api } from "../../../../../convex/_generated/api";
 
 const requestSchema = z.object({
     url: z.url(),
@@ -16,17 +14,11 @@ function parseGitHubUrl(url: string) {
     if (!match) {
         throw new Error("Invalid GitHub URL");
     }
-
     return { owner: match[1], repo: match[2].replace(/\.git$/, "") };
 }
 
 export async function POST(request: Request) {
-    const { userId, has } = await auth();
-    const hasPro = has({ plan: "pro" });
-
-    if (!hasPro) {
-        return NextResponse.json({ error: "Pro plan required" }, { status: 403 });
-    }
+    const { userId } = await auth();
 
     if (!userId) {
         return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
@@ -38,40 +30,35 @@ export async function POST(request: Request) {
     let result;
     try {
         result = parseGitHubUrl(url);
-    } catch (e) {
-        return NextResponse.json({ error: "Invalid GitHub URL" }, { status: 400 });
+    } catch {
+        return NextResponse.json(
+            { error: "Invalid GitHub URL" },
+            { status: 400 }
+        );
     }
     const { owner, repo } = result;
-    // https://github.com/AntonioErdeljac/cursor-dev
-    // { owner: "AntonioErdeljac", repo: "cursor-dev" }
 
     const client = await clerkClient();
-    const tokens = await client.users.getUserOauthAccessToken(
-        userId,
-        "github"
-    );
+    const tokens = await client.users.getUserOauthAccessToken(userId, "github");
     const githubToken = tokens.data[0]?.token;
 
     if (!githubToken) {
         return NextResponse.json(
-            { error: "GitHub not connected. Please reconnect your GitHub account." },
+            {
+                error:
+                    "GitHub not connected. Please reconnect your GitHub account.",
+            },
             { status: 400 }
         );
     }
 
-    const internalKey = process.env.MORIS_CONVEX_INTERNAL_KEY;
-
-    if (!internalKey) {
-        return NextResponse.json(
-            { error: "Server configuration error" },
-            { status: 500 }
-        );
-    }
-
-    const projectId = await convex.mutation(api.system.createProject, {
-        internalKey,
-        name: repo,
-        ownerId: userId,
+    // Create project in Prisma
+    const project = await prisma.project.create({
+        data: {
+            userId,
+            name: repo,
+            language: "unknown",
+        },
     });
 
     const event = await inngest.send({
@@ -79,14 +66,14 @@ export async function POST(request: Request) {
         data: {
             owner,
             repo,
-            projectId,
+            projectId: project.id,
             githubToken,
         },
     });
 
     return NextResponse.json({
         success: true,
-        projectId,
-        eventId: event.ids[0]
+        projectId: project.id,
+        eventId: event.ids[0],
     });
-};
+}

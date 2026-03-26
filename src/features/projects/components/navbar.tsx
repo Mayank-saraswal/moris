@@ -1,7 +1,7 @@
 "use client";
 
 import { Button } from "@/components/ui/button";
-import { Id } from "../../../../convex/_generated/dataModel";
+
 
 import { Breadcrumb, BreadcrumbEllipsis, BreadcrumbItem, BreadcrumbLink, BreadcrumbList, BreadcrumbSeparator, BreadcrumbPage } from "@/components/ui/breadcrumb";
 import Link from "next/link";
@@ -12,8 +12,8 @@ import { UserButton } from "@clerk/nextjs";
 import { useProject, useRenameProject } from "../hooks/use-projects";
 import { useState } from "react";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
-import { ClockIcon, CloudCheckIcon, LoaderIcon } from "lucide-react";
-import { formatDistance, formatDistanceToNow } from "date-fns";
+import { ClockIcon, CloudCheckIcon } from "lucide-react";
+import { formatDistanceToNow } from "date-fns";
 
 
 const font = Poppins({
@@ -22,8 +22,8 @@ const font = Poppins({
 });
 
 
-export const Navbar = ({ projectId }: { projectId: Id<"projects"> }) => {
-    const project = useProject(projectId);
+export const Navbar = ({ projectId }: { projectId: string }) => {
+    const { data: project } = useProject(projectId);
     const renameProject = useRenameProject();
     const [isRenaming, setIsRenaming] = useState(false);
     const [name, setName] = useState("");
@@ -40,7 +40,7 @@ export const Navbar = ({ projectId }: { projectId: Id<"projects"> }) => {
         setIsRenaming(false);
         const trimmedName = name.trim();
         if (!trimmedName || trimmedName === project?.name) return;
-        renameProject({ id: projectId, name: trimmedName });
+        renameProject.mutate({ id: projectId, name: trimmedName });
     };
 
 
@@ -104,27 +104,16 @@ export const Navbar = ({ projectId }: { projectId: Id<"projects"> }) => {
                         </BreadcrumbItem>
                     </BreadcrumbList>
                 </Breadcrumb>
-                {project?.importStatus === "importing" ? (
+                {project?.updatedAt && (
                     <Tooltip>
                         <TooltipTrigger asChild>
-                            <LoaderIcon className="size-4 text-muted-foreground animate-spin" />
+                            <CloudCheckIcon className="size-4 text-muted-foreground " />
                         </TooltipTrigger>
                         <TooltipContent>
-                            Importing...
+                            Saved {""}
+                            {project?.updatedAt ? formatDistanceToNow(project.updatedAt, { addSuffix: true }) : "Loading..."}
                         </TooltipContent>
                     </Tooltip>
-                ) : (
-                    project?.updatedAt && (
-                        <Tooltip>
-                            <TooltipTrigger asChild>
-                                <CloudCheckIcon className="size-4 text-muted-foreground " />
-                            </TooltipTrigger>
-                            <TooltipContent>
-                                Saved {""}
-                                {project?.updatedAt ? formatDistanceToNow(project.updatedAt, { addSuffix: true }) : "Loading..."}
-                            </TooltipContent>
-                        </Tooltip>
-                    )
                 )}
             </div>
             <div className="flex items-center gap-2">

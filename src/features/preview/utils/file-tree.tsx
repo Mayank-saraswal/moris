@@ -1,32 +1,33 @@
 import { FileSystemTree } from "@webcontainer/api";
 
-import { Doc, Id } from "../../../../convex/_generated/dataModel";
-
-type FileDoc = Doc<"files">;
+interface FileRecord {
+    id: string;
+    name: string;
+    path: string;
+    type: "file" | "folder";
+    blobPath: string | null;
+}
 
 /**
- * Convert flat Convex files to nested FileSystemTree for WebContainer
+ * Convert flat file records to nested FileSystemTree for WebContainer.
+ * Uses path-based file structure (e.g. "src/components/Button.tsx").
+ * Note: Only text files with loaded content are included in the tree.
  */
-export const buildFileTree = (files: FileDoc[]): FileSystemTree => {
+export const buildFileTree = (
+    files: FileRecord[],
+    fileContents?: Map<string, string>
+): FileSystemTree => {
     const tree: FileSystemTree = {};
-    const filesMap = new Map(files.map((f) => [f._id, f]));
 
-    const getPath = (file: FileDoc): string[] => {
-        const parts: string[] = [file.name];
-        let parentId = file.parentId;
+    // Sort so folders come first, then files
+    const sorted = [...files].sort((a, b) => {
+        if (a.type === "folder" && b.type !== "folder") return -1;
+        if (a.type !== "folder" && b.type === "folder") return 1;
+        return a.path.localeCompare(b.path);
+    });
 
-        while (parentId) {
-            const parent = filesMap.get(parentId);
-            if (!parent) break;
-            parts.unshift(parent.name);
-            parentId = parent.parentId;
-        };
-
-        return parts;
-    };
-
-    for (const file of files) {
-        const pathParts = getPath(file);
+    for (const file of sorted) {
+        const pathParts = file.path.split("/");
         let current = tree;
 
         for (let i = 0; i < pathParts.length; i++) {
@@ -38,8 +39,12 @@ export const buildFileTree = (files: FileDoc[]): FileSystemTree => {
                     if (!current[part]) {
                         current[part] = { directory: {} };
                     }
-                } else if (!file.storageId && file.content !== undefined) {
-                    current[part] = { file: { contents: file.content } };
+                } else {
+                    // Get content from the contents map if available
+                    const content = fileContents?.get(file.id) ?? "";
+                    if (content || !file.blobPath) {
+                        current[part] = { file: { contents: content } };
+                    }
                 }
             } else {
                 if (!current[part]) {
@@ -57,21 +62,8 @@ export const buildFileTree = (files: FileDoc[]): FileSystemTree => {
 };
 
 /**
- * Get full path for a file by traversing parent chain
+ * Get full path for a file (already stored as path in our model)
  */
-export const getFilePath = (
-    file: FileDoc,
-    filesMap: Map<Id<"files">, FileDoc>
-): string => {
-    const parts: string[] = [file.name];
-    let parentId = file.parentId;
-
-    while (parentId) {
-        const parent = filesMap.get(parentId);
-        if (!parent) break;
-        parts.unshift(parent.name);
-        parentId = parent.parentId;
-    }
-
-    return parts.join("/");
+export const getFilePath = (file: FileRecord): string => {
+    return file.path;
 };

@@ -1,173 +1,178 @@
-import { useMutation, useQuery } from "convex/react";
-import { Id } from "../../../../convex/_generated/dataModel";
-import { api } from "../../../../convex/_generated/api";
+"use client";
 
-// Sort: folders first, then files, alphabetically within each group
-const sortFiles = <T extends { type: "file" | "folder"; name: string }>(
-  files: T[]
-): T[] => {
-  return [...files].sort((a, b) => {
-    if (a.type === "folder" && b.type === "file") return -1;
-    if (a.type === "file" && b.type === "folder") return 1;
-    return a.name.localeCompare(b.name);
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+
+// ---- API helpers ----
+async function fetchAPI<T>(url: string): Promise<T> {
+  const res = await fetch(url);
+  if (!res.ok) throw new Error(`API error: ${res.status}`);
+  return res.json();
+}
+
+async function mutateAPI<T>(url: string, data: unknown): Promise<T> {
+  const res = await fetch(url, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(data),
+  });
+  if (!res.ok) throw new Error(`API error: ${res.status}`);
+  return res.json();
+}
+
+async function deleteAPI(url: string): Promise<void> {
+  const res = await fetch(url, { method: "DELETE" });
+  if (!res.ok) throw new Error(`API error: ${res.status}`);
+}
+
+// ---- Types ----
+export interface FileItem {
+  id: string;
+  name: string;
+  path: string;
+  type: "file" | "folder";
+  language: string | null;
+  size: number | null;
+  blobPath: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+// ---- Hooks ----
+export const useFiles = (projectId: string | null) => {
+  return useQuery({
+    queryKey: ["files", projectId],
+    queryFn: () => fetchAPI<FileItem[]>(`/api/projects/${projectId}/files`),
+    enabled: !!projectId,
   });
 };
 
-export const useFiles = (projectId: Id<"projects"> | null) => {
-    return useQuery(api.files.getFiles, projectId ? { projectId } : "skip");
+export const useFile = (fileId: string | null) => {
+  return useQuery({
+    queryKey: ["file", fileId],
+    queryFn: () => fetchAPI<FileItem>(`/api/files/${fileId}`),
+    enabled: !!fileId,
+  });
 };
 
-export const useFile = (fileId: Id<"files"> | null) => {
-    return useQuery(api.files.getFile, fileId ? { id: fileId } : "skip");
-}
-
-export const useFilePath = (fileId: Id<"files"> | null) => {
-    return useQuery(api.files.getFilePath, fileId ? { id: fileId } : "skip");
-}
+export const useFileContent = (projectId: string | null, fileId: string | null) => {
+  return useQuery({
+    queryKey: ["file-content", fileId],
+    queryFn: () => fetchAPI<{ content: string }>(`/api/files/${fileId}/content`),
+    enabled: !!projectId && !!fileId,
+    staleTime: 5 * 60 * 1000, // 5 min — content doesn't change often client-side
+  });
+};
 
 export const useCreateFile = () => {
-     return useMutation(api.files.createFile).withOptimisticUpdate(
-    (localStore, args) => {
-      const existingFiles = localStore.getQuery(api.files.getFolderContents, {
-        projectId: args.projectId,
-        parentId: args.parentId,
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: (data: {
+      projectId: string;
+      name: string;
+      content: string;
+      parentPath?: string;
+    }) => mutateAPI<FileItem>(`/api/projects/${data.projectId}/files`, data),
+    onSuccess: (_, variables) => {
+      queryClient.invalidateQueries({
+        queryKey: ["files", variables.projectId],
       });
-
-      if (existingFiles !== undefined) {
-        // eslint-disable-next-line react-hooks/purity -- optimistic update callback runs on mutation, not render
-        const now = Date.now();
-        const newFile = {
-          _id: crypto.randomUUID() as Id<"files">,
-          _creationTime: now,
-          projectId: args.projectId,
-          parentId: args.parentId,
-          name: args.name,
-          content: args.content,
-          type: "file" as const,
-          updatedAt: now,
-        };
-
-        localStore.setQuery(
-          api.files.getFolderContents,
-          { projectId: args.projectId, parentId: args.parentId },
-          sortFiles([...existingFiles, newFile])
-        );
-      }
-    }
-  );
+    },
+  });
 };
-
-
 
 export const useUpdateFile = () => {
-    return useMutation(api.files.updateFile);
+  const queryClient = useQueryClient();
 
+  return useMutation({
+    mutationFn: (data: { fileId: string; content: string }) =>
+      mutateAPI(`/api/files/${data.fileId}`, { content: data.content }),
+    onSuccess: (_, variables) => {
+      queryClient.invalidateQueries({
+        queryKey: ["file-content", variables.fileId],
+      });
+    },
+  });
 };
-
 
 export const useCreateFolder = () => {
-   return useMutation(api.files.createFolder).withOptimisticUpdate(
-    (localStore, args) => {
-      const existingFiles = localStore.getQuery(api.files.getFolderContents, {
-        projectId: args.projectId,
-        parentId: args.parentId,
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: (data: {
+      projectId: string;
+      name: string;
+      parentPath?: string;
+    }) =>
+      mutateAPI<FileItem>(`/api/projects/${data.projectId}/files`, {
+        ...data,
+        type: "folder",
+      }),
+    onSuccess: (_, variables) => {
+      queryClient.invalidateQueries({
+        queryKey: ["files", variables.projectId],
       });
-
-      if (existingFiles !== undefined) {
-        // eslint-disable-next-line react-hooks/purity -- optimistic update callback runs on mutation, not render
-        const now = Date.now();
-        const newFolder = {
-          _id: crypto.randomUUID() as Id<"files">,
-          _creationTime: now,
-          projectId: args.projectId,
-          parentId: args.parentId,
-          name: args.name,
-          type: "folder" as const,
-          updatedAt: now,
-        };
-
-        localStore.setQuery(
-          api.files.getFolderContents,
-          { projectId: args.projectId, parentId: args.parentId },
-          sortFiles([...existingFiles, newFolder])
-        );
-      }
-    }
-  );
+    },
+  });
 };
 
+export const useRenameFile = ({ projectId }: { projectId: string }) => {
+  const queryClient = useQueryClient();
 
-
-    export const useRenameFile = ({
-  projectId,
-  parentId,
-}: {
-  projectId: Id<"projects">;
-  parentId?: Id<"files">;
-}) => {
-  return useMutation(api.files.renameFile).withOptimisticUpdate(
-    (localStore, args) => {
-      const existingFiles = localStore.getQuery(api.files.getFolderContents, {
-        projectId,
-        parentId,
-      });
-
-      if (existingFiles !== undefined) {
-        const updatedFiles = existingFiles.map((file) =>
-          file._id === args.id ? { ...file, name: args.newName } : file
-        );
-
-        localStore.setQuery(
-          api.files.getFolderContents,
-          { projectId, parentId },
-          sortFiles(updatedFiles)
-        );
-      }
-    }
-  )
+  return useMutation({
+    mutationFn: (data: { id: string; newName: string }) =>
+      mutateAPI(`/api/files/${data.id}/rename`, { newName: data.newName }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["files", projectId] });
+    },
+  });
 };
 
+export const useDeleteFile = ({ projectId }: { projectId: string }) => {
+  const queryClient = useQueryClient();
 
-
-export const useDeleteFile = ({
-  projectId,
-  parentId,
-}: {
-  projectId: Id<"projects">;
-  parentId?: Id<"files">;
-}) => {
-  return useMutation(api.files.deleteFile).withOptimisticUpdate(
-    (localStore, args) => {
-      const existingFiles = localStore.getQuery(api.files.getFolderContents, {
-        projectId,
-        parentId,
-      });
-
-      if (existingFiles !== undefined) {
-        localStore.setQuery(
-          api.files.getFolderContents,
-          { projectId, parentId },
-          existingFiles.filter((file) => file._id !== args.id)
-        );
-      }
-    }
-  );
+  return useMutation({
+    mutationFn: (data: { id: string }) => deleteAPI(`/api/files/${data.id}`),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["files", projectId] });
+    },
+  });
 };
-
 
 export const useFolderContents = ({
-    projectId,
-    parentId,
-    enabled = true,
+  projectId,
+  parentPath,
+  enabled = true,
 }: {
-    projectId: Id<"projects">;
-    parentId?: Id<"files">;
-    enabled?: boolean;
+  projectId: string;
+  parentPath?: string;
+  enabled?: boolean;
 }) => {
-    return useQuery(
-        api.files.getFolderContents,
-        enabled ? { projectId, parentId } : "skip",
+  return useQuery({
+    queryKey: ["folder-contents", projectId, parentPath],
+    queryFn: () => {
+      const params = new URLSearchParams();
+      if (parentPath) params.set("parentPath", parentPath);
+      return fetchAPI<FileItem[]>(
+        `/api/projects/${projectId}/files?${params.toString()}`
+      );
+    },
+    enabled,
+  });
+};
 
-    )
-}
+/**
+ * Derive breadcrumb path segments from a file's path.
+ * Returns an array of { id, name } objects representing each path segment.
+ */
+export const useFilePath = (fileId: string | null) => {
+  const { data: file } = useFile(fileId);
 
+  if (!file) return undefined;
+
+  const parts = file.path.split("/");
+  return parts.map((name, index) => ({
+    id: `${fileId}-segment-${index}`,
+    name,
+  }));
+};

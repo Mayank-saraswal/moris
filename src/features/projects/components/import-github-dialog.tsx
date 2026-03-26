@@ -18,7 +18,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { Field, FieldError, FieldLabel } from "@/components/ui/field";
 
-import { Id } from "../../../../convex/_generated/dataModel";
+
 
 const formSchema = z.object({
   url: z.url("Please enter a valid URL"),
@@ -51,7 +51,7 @@ export const ImportGithubDialog = ({
           })
           .json<{ 
             success: boolean; 
-            projectId: Id<"projects">,
+            projectId: string,
             eventId: string;
           }>()
 

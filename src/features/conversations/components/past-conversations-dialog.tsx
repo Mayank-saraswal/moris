@@ -1,6 +1,6 @@
 "use client"
 
-import {formatDistanceToNow} from "date-fns";
+import { formatDistanceToNow } from "date-fns";
 import {
     CommandDialog,
     CommandEmpty,
@@ -10,13 +10,13 @@ import {
     CommandList,
 } from "@/components/ui/command";
 import { useConversations } from "../hooks/use-conversations";
-import { Id } from "../../../../convex/_generated/dataModel";
+
 
 interface PastConversationsDialogProps {
-    projectId: Id<"projects">;
+    projectId: string;
     open: boolean;
     onOpenChange: (open: boolean) => void;
-    onSelect?: (conversationId: Id<"conversations">) => void;
+    onSelect?: (conversationId: string) => void;
 }
 
 export const PastConversationsDialog = ({
@@ -26,31 +26,31 @@ export const PastConversationsDialog = ({
     onSelect,
 }: PastConversationsDialogProps) => {
     const conversations = useConversations(projectId);
-    const handleSelect = (conversationId: Id<"conversations">) => {
+    const handleSelect = (conversationId: string) => {
         onSelect?.(conversationId);
         onOpenChange(false);
     };
     return (
         <CommandDialog open={open} onOpenChange={onOpenChange}
-        title="Past Conversations"
-        description=" Search and select a past conversation"
+            title="Past Conversations"
+            description=" Search and select a past conversation"
         >
             <CommandInput placeholder="Search conversations..." />
             <CommandList>
                 <CommandEmpty>No conversations found.</CommandEmpty>
                 <CommandGroup heading="Conversations">
-                    {conversations?.map((conversation) => (
+                    {conversations.data?.map((conversation) => (
                         <CommandItem
-                            key={conversation._id}
-                            value={`${conversation.title}-${conversation._id}`}
-                            onSelect={() => handleSelect(conversation._id)}
+                            key={conversation.id}
+                            value={`${conversation.title}-${conversation.id}`}
+                            onSelect={() => handleSelect(conversation.id)}
                         >
                             <div className="flex flex-col gap-0.5">
                                 <span>{conversation.title}</span>
                                 <span
-                                className="text-sm text-muted-foreground"
-                                >{formatDistanceToNow(conversation._creationTime, {addSuffix: true})
-                                }</span>
+                                    className="text-sm text-muted-foreground"
+                                >{formatDistanceToNow(new Date(conversation.createdAt), { addSuffix: true })
+                                    }</span>
                             </div>
                         </CommandItem>
                     ))}

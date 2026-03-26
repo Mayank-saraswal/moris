@@ -4,7 +4,7 @@ import { Allotment } from "allotment";
 
 
 import { Navbar } from "./navbar";
-import { Id } from "../../../../convex/_generated/dataModel";
+
 import { ConversationSidebar } from "@/features/conversations/components/conversation-sidebar";
 import { ModelProvider } from "@/features/editor/contexts/model-context";
 
@@ -14,7 +14,7 @@ const DEFAULT_CONVERSATION_SIDEBAR_WIDTH = 400;
 const DEFAULT_MAIN_SIZE = 1000;
 
 
-export const ProjectIdLayout = ({ children, projectId }: { children: React.ReactNode, projectId: Id<"projects"> }) => {
+export const ProjectIdLayout = ({ children, projectId }: { children: React.ReactNode, projectId: string }) => {
     return (
         <ModelProvider>
             <div className="w-full h-screen  flex flex-col">

@@ -1,14 +1,7 @@
 import { z } from "zod";
 import { createTool } from "@inngest/agent-kit";
-
-import { convex } from "@/lib/convex-client";
-
-import { api } from "../../../../../convex/_generated/api";
-import { Id } from "../../../../../convex/_generated/dataModel";
-
-interface DeleteFilesToolOptions {
-  internalKey: string;
-}
+import { prisma } from "@/lib/prisma";
+import { deleteFile as deleteFileBlob } from "@/lib/file-storage";
 
 const paramsSchema = z.object({
   fileIds: z
@@ -16,9 +9,7 @@ const paramsSchema = z.object({
     .min(1, "Provide at least one file ID"),
 });
 
-export const createDeleteFilesTool = ({
-  internalKey,
-}: DeleteFilesToolOptions) => {
+export const createDeleteFilesTool = () => {
   return createTool({
     name: "deleteFiles",
     description:
@@ -36,28 +27,26 @@ export const createDeleteFilesTool = ({
 
       const { fileIds } = parsed.data;
 
-      // Validate all files exist before running the step
-      const filesToDelete: { 
-        id: string; 
-        name: string; 
-        type: string
+      // Validate all files exist
+      const filesToDelete: {
+        id: string;
+        name: string;
+        type: string;
+        projectId: string;
+        blobPath: string | null;
       }[] = [];
 
       for (const fileId of fileIds) {
-        const file = await convex.query(api.system.getFileById, {
-          internalKey,
-          fileId: fileId as Id<"files">,
+        const file = await prisma.file.findUnique({
+          where: { id: fileId },
+          select: { id: true, name: true, type: true, projectId: true, blobPath: true },
         });
 
         if (!file) {
           return `Error: File with ID "${fileId}" not found. Use listFiles to get valid file IDs.`;
         }
 
-        filesToDelete.push({
-          id: file._id,
-          name: file.name,
-          type: file.type,
-        });
+        filesToDelete.push(file);
       }
 
       try {
@@ -65,10 +54,47 @@ export const createDeleteFilesTool = ({
           const results: string[] = [];
 
           for (const file of filesToDelete) {
-            await convex.mutation(api.system.deleteFile, {
-              internalKey,
-              fileId: file.id as Id<"files">,
-            });
+            // Delete blob from Azure if it exists
+            if (file.blobPath) {
+              try {
+                await deleteFileBlob(file.projectId, file.id);
+              } catch {
+                // Continue even if blob delete fails
+              }
+            }
+
+            // If it's a folder, find and delete all children
+            if (file.type === "folder") {
+              const children = await prisma.file.findMany({
+                where: {
+                  projectId: file.projectId,
+                  path: { startsWith: `${file.name}/` },
+                },
+                select: { id: true, blobPath: true },
+              });
+
+              // Delete child blobs
+              for (const child of children) {
+                if (child.blobPath) {
+                  try {
+                    await deleteFileBlob(file.projectId, child.id);
+                  } catch {
+                    // Continue
+                  }
+                }
+              }
+
+              // Delete child records
+              await prisma.file.deleteMany({
+                where: {
+                  projectId: file.projectId,
+                  path: { startsWith: `${file.name}/` },
+                },
+              });
+            }
+
+            // Delete the file/folder record
+            await prisma.file.delete({ where: { id: file.id } });
 
             results.push(`Deleted ${file.type} "${file.name}" successfully`);
           }
@@ -78,6 +104,6 @@ export const createDeleteFilesTool = ({
       } catch (error) {
         return `Error deleting files: ${error instanceof Error ? error.message : "Unknown error"}`;
       }
-    }
+    },
   });
 };

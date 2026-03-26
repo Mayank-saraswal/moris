@@ -2,11 +2,8 @@ import { z } from "zod";
 import { NextResponse } from "next/server";
 import { auth } from "@clerk/nextjs/server";
 
-import { convex } from "@/lib/convex-client";
+import { prisma } from "@/lib/prisma";
 import { inngest } from "@/inngest/client";
-
-import { api } from "../../../../../../convex/_generated/api";
-import { Id } from "../../../../../../convex/_generated/dataModel";
 
 const requestSchema = z.object({
     projectId: z.string(),
@@ -22,32 +19,24 @@ export async function POST(request: Request) {
     const body = await request.json();
     const { projectId } = requestSchema.parse(body);
 
-    const internalKey = process.env.MORIS_CONVEX_INTERNAL_KEY;
-
-    if (!internalKey) {
-        return NextResponse.json(
-            { error: "Server configuration error" },
-            { status: 500 }
-        );
-    }
-
     const event = await inngest.send({
         name: "github/export.cancel",
-        data: {
-            projectId,
-        },
+        data: { projectId },
     });
 
-    // Update status to cancelled
-    await convex.mutation(api.system.updateExportStatus, {
-        internalKey,
-        projectId: projectId as Id<"projects">,
-        status: "cancelled",
+    // Update settings to mark export as cancelled
+    await prisma.project.updateMany({
+        where: { id: projectId, userId },
+        data: {
+            settings: {
+                exportStatus: "cancelled",
+            },
+        },
     });
 
     return NextResponse.json({
         success: true,
         projectId,
-        eventId: event.ids[0]
+        eventId: event.ids[0],
     });
-};
+}

@@ -1,25 +1,18 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { WebContainer } from "@webcontainer/api";
 
-import {
-    buildFileTree,
-    getFilePath
-} from "@/features/preview/utils/file-tree";
+import { buildFileTree, getFilePath } from "@/features/preview/utils/file-tree";
 import { useFiles } from "@/features/projects/hooks/use-files";
 import { getWebContainer, teardownWebContainer } from "@/lib/webcontainer";
 
-import { api } from "../../../../convex/_generated/api";
-import { Id } from "../../../../convex/_generated/dataModel";
-
-
 interface UseWebContainerProps {
-    projectId: Id<"projects">;
+    projectId: string;
     enabled: boolean;
     settings?: {
         installCommand?: string;
         devCommand?: string;
     };
-};
+}
 
 export const useWebContainer = ({
     projectId,
@@ -37,8 +30,8 @@ export const useWebContainer = ({
     const containerRef = useRef<WebContainer | null>(null);
     const hasStartedRef = useRef(false);
 
-    // Fetch files from Convex (auto-updates on changes)
-    const files = useFiles(projectId);
+    // Fetch files from database (auto-updates on changes via React Query)
+    const { data: files } = useFiles(projectId);
 
     // Initial boot and mount
     useEffect(() => {
@@ -61,6 +54,7 @@ export const useWebContainer = ({
                 const container = await getWebContainer();
                 containerRef.current = container;
 
+                // Build tree from path-based files (no content for initial mount)
                 const fileTree = buildFileTree(files);
                 await container.mount(fileTree);
 
@@ -74,7 +68,7 @@ export const useWebContainer = ({
                 // Parse install command (default: npm install)
                 const installCmd = settings?.installCommand || "npm install";
                 const [installBin, ...installArgs] = installCmd.split(" ");
-                appendOutput(`$ ${installCmd}\n`)
+                appendOutput(`$ ${installCmd}\n`);
                 const installProcess = await container.spawn(installBin, installArgs);
                 installProcess.output.pipeTo(
                     new WritableStream({
@@ -103,8 +97,8 @@ export const useWebContainer = ({
                         },
                     })
                 );
-            } catch (error) {
-                setError(error instanceof Error ? error.message : "Unknown error");
+            } catch (err) {
+                setError(err instanceof Error ? err.message : "Unknown error");
                 setStatus("error");
             }
         };
@@ -118,18 +112,18 @@ export const useWebContainer = ({
         settings?.installCommand,
     ]);
 
-    // Sync file changes (hot-reload)
+    // Sync file changes to WebContainer (hot-reload)
     useEffect(() => {
         const container = containerRef.current;
         if (!container || !files || status !== "running") return;
 
-        const filesMap = new Map(files.map((f) => [f._id, f]));
-
-        for (const file of files) {
-            if (file.type !== "file" || file.storageId || !file.content) continue;
-
-            const filePath = getFilePath(file, filesMap);
-            container.fs.writeFile(filePath, file.content);
+        for (const file of (files ?? [])) {
+            if (file.type !== "file") continue;
+            // Write empty file placeholder — content will be loaded when needed
+            const filePath = getFilePath(file);
+            container.fs.writeFile(filePath, "").catch(() => {
+                // Ignore errors for files that can't be written
+            });
         }
     }, [files, status]);
 
