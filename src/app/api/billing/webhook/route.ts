@@ -17,7 +17,15 @@ export async function POST(request: Request) {
         );
     }
 
-    const event = JSON.parse(body);
+    let event;
+    try {
+        event = JSON.parse(body);
+    } catch {
+        return NextResponse.json(
+            { error: "Invalid JSON payload" },
+            { status: 400 }
+        );
+    }
     const eventType = event.event;
 
     try {

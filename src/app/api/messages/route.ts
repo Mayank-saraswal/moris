@@ -9,7 +9,7 @@ import { rateLimiters } from "@/lib/redis";
 
 const requestSchema = z.object({
   conversationId: z.string(),
-  message: z.string(),
+  message: z.string().min(1).max(100_000),
   model: z.string().optional(),
 });
 
@@ -44,8 +44,29 @@ export async function POST(request: Request) {
     );
   }
 
-  const body = await request.json();
-  const { conversationId, message, model } = requestSchema.parse(body);
+  let body;
+  try {
+    body = await request.json();
+  } catch {
+    return NextResponse.json(
+      { error: "Invalid JSON payload" },
+      { status: 400 }
+    );
+  }
+
+  let parsed;
+  try {
+    parsed = requestSchema.parse(body);
+  } catch (err) {
+    const message = err instanceof z.ZodError
+      ? err.errors.map((e) => e.message).join(", ")
+      : "Invalid request body";
+    return NextResponse.json(
+      { error: message },
+      { status: 400 }
+    );
+  }
+  const { conversationId, message, model } = parsed;
 
   // Verify conversation exists and belongs to user
   const conversation = await prisma.conversation.findFirst({
